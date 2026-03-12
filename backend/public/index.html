@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Realtime Monitoring</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./style.css" />
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="background-gradient"></div>
+
+  <div class="connection-indicator">
+    <span class="indicator-dot" id="connection-dot"></span>
+    <span id="connection-text">Disconnected</span>
+  </div>
+
+  <main class="app-container">
+    <!-- Role selection -->
+    <section id="role-selection" class="card glass active">
+      <div class="card-header">
+        <h1>Realtime Monitoring</h1>
+        <p>Choose your role to join a live session.</p>
+      </div>
+      <div class="card-body role-buttons">
+        <button id="admin-btn" class="primary-btn">Login as Admin</button>
+        <button id="student-btn" class="secondary-btn">Login as Student</button>
+      </div>
+      <div class="card-footer subtle-text">
+        <span>No login, no tracking. Local network only.</span>
+      </div>
+    </section>
+
+    <!-- Admin login -->
+    <section id="admin-login" class="card glass hidden">
+      <div class="card-header">
+        <h2>Admin Login</h2>
+        <p>Enter your admin credentials to continue.</p>
+      </div>
+      <div class="card-body">
+        <div class="field-group">
+          <label for="admin-username">Username</label>
+          <input
+            id="admin-username"
+            type="text"
+            placeholder="Username"
+            autocomplete="username"
+          />
+        </div>
+        <div class="field-group">
+          <label for="admin-password">Password</label>
+          <input
+            id="admin-password"
+            type="password"
+            placeholder="Password"
+            autocomplete="current-password"
+          />
+        </div>
+        <button id="admin-login-btn" class="primary-btn full-width">Login</button>
+        <p id="admin-login-error" class="error-text hidden"></p>
+      </div>
+      <div class="card-footer">
+        <button id="admin-login-back-btn" class="ghost-btn small">Back</button>
+      </div>
+    </section>
+
+    <!-- Admin dashboard -->
+    <section id="admin-dashboard" class="card glass hidden">
+      <div class="card-header admin-header">
+        <div>
+          <h2>Admin Dashboard</h2>
+          <p>Monitor connected students in real time.</p>
+        </div>
+        <button id="admin-back-btn" class="ghost-btn">Back</button>
+      </div>
+
+      <div class="admin-info-row">
+        <div class="info-pill">
+          <span class="label">Room Code</span>
+          <span id="admin-room-code" class="value large">—</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Monitoring</span>
+          <span id="admin-monitoring-status" class="value status-pill stopped">Stopped</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Students</span>
+          <span id="admin-student-count" class="value">0</span>
+        </div>
+      </div>
+
+      <div class="admin-controls">
+        <button id="start-session-btn" class="primary-btn">Start Session</button>
+        <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
+        <button id="stop-monitoring-btn" class="ghost-btn" disabled>Stop Monitoring</button>
+        <button id="end-session-btn" class="danger-btn" disabled>End Session</button>
+      </div>
+
+      <div class="students-section">
+        <div class="section-header">
+          <h3>Connected Students</h3>
+          <p id="students-subtitle">Waiting for students to join...</p>
+        </div>
+        <div id="students-grid" class="students-grid">
+          <!-- Cards injected dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Student join screen -->
+    <section id="student-join" class="card glass hidden">
+      <div class="card-header">
+        <h2>Join a Session</h2>
+        <p>Enter the room code provided by your instructor.</p>
+      </div>
+      <div class="card-body">
+        <div class="field-group">
+          <label for="student-room-code">Room Code</label>
+          <input
+            id="student-room-code"
+            type="text"
+            maxlength="6"
+            placeholder="e.g. ABC123"
+            autocomplete="off"
+          />
+        </div>
+        <div class="field-group">
+          <label for="student-name">Your Name</label>
+          <input
+            id="student-name"
+            type="text"
+            maxlength="50"
+            placeholder="Enter your display name"
+            autocomplete="off"
+          />
+        </div>
+        <button id="join-session-btn" class="primary-btn full-width">Join Session</button>
+        <p id="student-join-error" class="error-text hidden"></p>
+      </div>
+      <div class="card-footer">
+        <button id="student-back-btn" class="ghost-btn small">Back</button>
+      </div>
+    </section>
+
+    <!-- Student in-session view -->
+    <section id="student-session" class="card glass hidden">
+      <div class="card-header student-header">
+        <div>
+          <h2>Session Connected</h2>
+          <p id="student-session-subtitle">You are in the live room.</p>
+        </div>
+        <button id="student-leave-btn" class="ghost-btn">Leave</button>
+      </div>
+
+      <div class="student-info-row">
+        <div class="info-pill">
+          <span class="label">Room Code</span>
+          <span id="student-session-room-code" class="value large">—</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Monitoring</span>
+          <span id="student-monitoring-status" class="value status-pill stopped">Stopped</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">You</span>
+          <span id="student-display-name" class="value">—</span>
+        </div>
+      </div>
+
+      <div class="student-message" id="student-status-message">
+        Waiting for monitoring to start...
+      </div>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
+
