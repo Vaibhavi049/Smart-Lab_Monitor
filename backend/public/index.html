@@ -32,35 +32,25 @@
     </section>
 
     <!-- Admin login -->
-    <section id="admin-login" class="card glass hidden">
+    <section id="admin-login" class="card login-card hidden" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); text-align: center;">
       <div class="card-header">
-        <h2>Admin Login</h2>
-        <p>Enter your admin credentials to continue.</p>
+        <h2 style="color: #333;">SmartLab Monitoring System</h2>
+        <p style="color: #666; font-size: 1.1em; margin-bottom: 20px;">Instructor Login</p>
       </div>
       <div class="card-body">
-        <div class="field-group">
-          <label for="admin-username">Username</label>
-          <input
-            id="admin-username"
-            type="text"
-            placeholder="Username"
-            autocomplete="username"
-          />
-        </div>
-        <div class="field-group">
-          <label for="admin-password">Password</label>
-          <input
-            id="admin-password"
-            type="password"
-            placeholder="Password"
-            autocomplete="current-password"
-          />
-        </div>
-        <button id="admin-login-btn" class="primary-btn full-width">Login</button>
-        <p id="admin-login-error" class="error-text hidden"></p>
+        <button id="admin-login-btn" class="primary-btn full-width" style="background-color: #4285F4; border-radius: 25px; font-weight: 500; font-size: 1.05em; padding: 12px 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; display: inline-flex; align-items: center; justify-content: center; gap: 10px; color: white; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+             <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9082c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#fff" />
+             <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9082-2.2581c-.8059.54-1.8368.859-3.0482.859-2.344 0-4.3282-1.5831-5.036-3.7104H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#fff" />
+             <path d="M3.964 10.71c-.18-.54-.2822-1.1168-.2822-1.71s.1023-1.17.2823-1.71V4.9582H.9573A8.9965 8.9965 0 0 0 0 9c0 1.4523.3477 2.8268.9573 4.0418L3.964 10.71z" fill="#fff" />
+             <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.964 7.29C4.6718 5.1627 6.656 3.5795 9 3.5795z" fill="#fff" />
+             <path d="M0 0h18v18H0z" fill="none"/>
+          </svg>
+          Login with Google
+        </button>
       </div>
-      <div class="card-footer">
-        <button id="admin-login-back-btn" class="ghost-btn small">Back</button>
+      <div class="card-footer" style="border-top: none; margin-top: 15px;">
+        <button id="admin-login-back-btn" class="ghost-btn small" style="color: #666;">Back</button>
       </div>
     </section>
 
@@ -69,6 +59,7 @@
       <div class="card-header admin-header">
         <div>
           <h2>Admin Dashboard</h2>
+          <p id="admin-greeting" style="font-weight: bold; margin-bottom: 5px;"></p>
           <p>Monitor connected students in real time.</p>
         </div>
         <button id="admin-back-btn" class="ghost-btn">Back</button>
@@ -90,7 +81,17 @@
       </div>
 
       <div class="admin-controls">
-        <button id="start-session-btn" class="primary-btn">Start Session</button>
+        <div style="margin-bottom: 15px; text-align: left;">
+          <label for="admin-subject" style="display: block; font-weight: bold; margin-bottom: 5px;">Select Subject:</label>
+          <select id="admin-subject" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em;">
+            <option value="Computer Networks">Computer Networks</option>
+            <option value="Operating Systems">Operating Systems</option>
+            <option value="Database Management">Database Management</option>
+            <option value="Data Structures">Data Structures</option>
+            <option value="Software Engineering">Software Engineering</option>
+          </select>
+        </div>
+        <button id="start-session-btn" class="primary-btn">Create Session</button>
         <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
         <button id="stop-monitoring-btn" class="ghost-btn" disabled>Stop Monitoring</button>
         <button id="end-session-btn" class="danger-btn" disabled>End Session</button>
@@ -110,7 +111,31 @@
     <!-- Student join screen -->
     <section id="student-join" class="card glass hidden">
       <div class="card-header">
+        <h2 style="color: #333;">SmartLab Monitoring System</h2>
+        <p style="color: #666; font-size: 1.1em; margin-bottom: 20px;">Student Login</p>
+      </div>
+      <div class="card-body">
+        <button id="student-login-btn" class="primary-btn full-width" style="background-color: #4285F4; border-radius: 25px; font-weight: 500; font-size: 1.05em; padding: 12px 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; display: inline-flex; align-items: center; justify-content: center; gap: 10px; color: white; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+             <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9082c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#fff" />
+             <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9082-2.2581c-.8059.54-1.8368.859-3.0482.859-2.344 0-4.3282-1.5831-5.036-3.7104H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#fff" />
+             <path d="M3.964 10.71c-.18-.54-.2822-1.1168-.2822-1.71s.1023-1.17.2823-1.71V4.9582H.9573A8.9965 8.9965 0 0 0 0 9c0 1.4523.3477 2.8268.9573 4.0418L3.964 10.71z" fill="#fff" />
+             <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.964 7.29C4.6718 5.1627 6.656 3.5795 9 3.5795z" fill="#fff" />
+             <path d="M0 0h18v18H0z" fill="none"/>
+          </svg>
+          Login with Google
+        </button>
+      </div>
+      <div class="card-footer" style="border-top: none; margin-top: 15px;">
+        <button id="student-back-btn" class="ghost-btn small" style="color: #666;">Back</button>
+      </div>
+    </section>
+
+    <!-- Student dashboard after login to enter code -->
+    <section id="student-dashboard" class="card glass hidden">
+      <div class="card-header">
         <h2>Join a Session</h2>
+        <p id="student-greeting" style="font-weight: bold; margin-bottom: 5px;"></p>
         <p>Enter the room code provided by your instructor.</p>
       </div>
       <div class="card-body">
@@ -122,23 +147,11 @@
             maxlength="6"
             placeholder="e.g. ABC123"
             autocomplete="off"
-          />
-        </div>
-        <div class="field-group">
-          <label for="student-name">Your Name</label>
-          <input
-            id="student-name"
-            type="text"
-            maxlength="50"
-            placeholder="Enter your display name"
-            autocomplete="off"
+            style="text-transform: uppercase;"
           />
         </div>
         <button id="join-session-btn" class="primary-btn full-width">Join Session</button>
         <p id="student-join-error" class="error-text hidden"></p>
-      </div>
-      <div class="card-footer">
-        <button id="student-back-btn" class="ghost-btn small">Back</button>
       </div>
     </section>
 
