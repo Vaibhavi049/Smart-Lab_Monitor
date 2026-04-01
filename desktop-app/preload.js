@@ -3,9 +3,9 @@ const { io } = require('socket.io-client');
 
 let socket = null;
 
-function ensureSocket() {
+function ensureSocket(ipAddress = 'localhost') {
   if (!socket) {
-    socket = io('http://172.16.197.60:4000', {
+    socket = io(`http://${ipAddress}:4000`, {
       autoConnect: false,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -18,8 +18,12 @@ function ensureSocket() {
 }
 
 contextBridge.exposeInMainWorld('socketAPI', {
-  connect() {
-    const s = ensureSocket();
+  connect(ipAddress = 'localhost') {
+    const s = ensureSocket(ipAddress);
+    if (s.io && s.io.uri !== `http://${ipAddress}:4000`) {
+      s.disconnect();
+      s.io.uri = `http://${ipAddress}:4000`;
+    }
     if (!s.connected && !s.connecting) {
       s.connect();
     }
