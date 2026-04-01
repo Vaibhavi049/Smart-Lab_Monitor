@@ -14,6 +14,12 @@
     "directories": {
       "output": "dist"
     },
+    "extraResources": [
+      {
+        "from": "activity_monitor.exe",
+        "to": "activity_monitor.exe"
+      }
+    ],
     "files": [
       "main.js",
       "preload.js",

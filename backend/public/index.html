@@ -80,6 +80,10 @@
           <span id="admin-room-code" class="value large">—</span>
         </div>
         <div class="info-pill">
+          <span class="label">Subject</span>
+          <span id="admin-subject-display" class="value status-pill active">—</span>
+        </div>
+        <div class="info-pill">
           <span class="label">Monitoring</span>
           <span id="admin-monitoring-status" class="value status-pill stopped">Stopped</span>
         </div>
@@ -90,6 +94,11 @@
       </div>
 
       <div class="admin-controls">
+        <div style="display: flex; gap: 15px; width: 100%; align-items: center; margin-bottom: 8px;">
+          <span style="color: #cbd5f5; font-size: 14px; font-weight: bold;">Select Subject:</span>
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;"><input type="radio" name="subjectSelect" value="ML" checked> Machine Learning (ML)</label>
+          <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;"><input type="radio" name="subjectSelect" value="DBMS"> DBMS</label>
+        </div>
         <button id="start-session-btn" class="primary-btn">Start Session</button>
         <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
         <button id="stop-monitoring-btn" class="ghost-btn" disabled>Stop Monitoring</button>
