@@ -5,7 +5,7 @@ let socket = null;
 
 function ensureSocket() {
   if (!socket) {
-    socket = io('http://10.64.101.40:4000', {
+    socket = io('http://172.16.197.60:4000', {
       autoConnect: false,
       transports: ['websocket', 'polling'],
       reconnection: true,
