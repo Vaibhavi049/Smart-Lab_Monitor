@@ -201,6 +201,7 @@ function setupSocketEventHandlers() {
       roomCode === studentSession.roomCode
     ) {
       alert('Session ended by admin.');
+      socketAPI.stopTracking();
       resetStudentState();
       showCard(roleSelectionCard);
       currentRole = null;
@@ -235,6 +236,7 @@ function setupSocketEventHandlers() {
     }
     if (currentRole === 'student' && roomCode === studentSession.roomCode) {
       setStudentMonitoringStatus(monitoringStatus || 'active');
+      socketAPI.startTracking();
     }
   });
 
@@ -245,6 +247,13 @@ function setupSocketEventHandlers() {
     }
     if (currentRole === 'student' && roomCode === studentSession.roomCode) {
       setStudentMonitoringStatus(monitoringStatus || 'stopped');
+      socketAPI.stopTracking();
+    }
+  });
+
+  socketAPI.onActivityData((data) => {
+    if (studentSession.monitoringStatus === 'active') {
+      socketAPI.emit('ACTIVITY_UPDATE', data);
     }
   });
 }
@@ -389,6 +398,9 @@ joinSessionBtn.addEventListener('click', () => {
       studentSession.name = student?.name || name;
       studentSession.studentId = student?.studentId || null;
       setStudentMonitoringStatus(session.monitoringStatus || 'stopped');
+      if (session.monitoringStatus === 'active') {
+        socketAPI.startTracking();
+      }
 
       studentSessionRoomCodeEl.textContent = studentSession.roomCode;
       studentDisplayNameEl.textContent = studentSession.name;
@@ -403,6 +415,7 @@ studentLeaveBtn.addEventListener('click', () => {
   const confirmed = confirm('Leave this session?');
   if (!confirmed) return;
 
+  socketAPI.stopTracking();
   resetStudentState();
   currentRole = null;
   showCard(roleSelectionCard);

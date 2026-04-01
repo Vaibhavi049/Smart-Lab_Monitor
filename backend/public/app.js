@@ -22,6 +22,7 @@ const stopMonitoringBtn = $('stop-monitoring-btn');
 const endSessionBtn = $('end-session-btn');
 
 const adminRoomCodeEl = $('admin-room-code');
+const adminSubjectDisplayEl = $('admin-subject-display');
 const adminMonitoringStatusEl = $('admin-monitoring-status');
 const adminStudentCountEl = $('admin-student-count');
 const studentsGrid = $('students-grid');
@@ -127,6 +128,9 @@ function renderAdminStudents() {
   adminStudents.forEach((student) => {
     const card = document.createElement('div');
     card.className = 'student-card';
+    if (student.flagged) {
+      card.classList.add('flagged');
+    }
 
     const orb = document.createElement('div');
     orb.className = 'student-card-orb';
@@ -157,6 +161,7 @@ function resetAdminState() {
   adminStudents = [];
 
   adminRoomCodeEl.textContent = '—';
+  if (adminSubjectDisplayEl) adminSubjectDisplayEl.textContent = '—';
   setAdminMonitoringStatus('stopped');
   adminStudentCountEl.textContent = '0';
   studentsGrid.innerHTML = '';
@@ -307,6 +312,7 @@ if (startSessionBtn) {
       const { session } = response;
       adminRoomCode = session.roomCode;
       adminRoomCodeEl.textContent = adminRoomCode;
+      if (adminSubjectDisplayEl) adminSubjectDisplayEl.textContent = session.subject || subject;
 
       setAdminMonitoringStatus(session.monitoringStatus || 'stopped');
       adminStudents = session.students || [];

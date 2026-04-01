@@ -159,6 +159,7 @@ io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
   socket.on('CREATE_SESSION', (payload, callback) => {
+    const { subject } = payload || {};
     try {
       const existing = findSessionByAdminSocket(socket.id);
       if (existing) {
@@ -176,6 +177,7 @@ io.on('connection', (socket) => {
       const session = {
         sessionId,
         roomCode,
+        subject: subject || 'ML',
         adminSocketId: socket.id,
         students: [],
         monitoringStatus: 'stopped'
@@ -360,6 +362,61 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Rule engine configurations
+  const RULES = {
+    ML: ['colab', 'classroom', 'gmail'],
+    DBMS: ['classroom', 'sql plus', 'sqlplus']
+  };
+
+  socket.on('ACTIVITY_UPDATE', (payload) => {
+    const sessionInfo = findSessionByStudentSocket(socket.id);
+    if (!sessionInfo) return;
+
+    const { session, roomCode, studentIndex } = sessionInfo;
+    if (session.monitoringStatus !== 'active') return;
+
+    const { windows, processes } = payload || {};
+    const allowedKeywords = RULES[session.subject] || [];
+
+    let isFlagged = false;
+
+    // Strict whitelisting: if ANY active WINDOW doesn't match ALLOWED keywords, flag them.
+    for (const item of (windows || [])) {
+      const lowerItem = item.toLowerCase();
+      
+      // Skip generic OS items that shouldn't trigger flags automatically
+      if (lowerItem.includes('explorer') || lowerItem.includes('task manager') || lowerItem.includes('program manager')) continue;
+
+      let isAllowed = false;
+      for (const keyword of allowedKeywords) {
+        if (lowerItem.includes(keyword)) {
+          isAllowed = true;
+          break;
+        }
+      }
+      
+      if (!isAllowed) {
+        isFlagged = true;
+        break;
+      }
+    }
+
+    const student = session.students[studentIndex];
+    if (student.flagged !== isFlagged) {
+      student.flagged = isFlagged;
+      
+      // Broadcast updated student list including the flag state
+      io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
+        roomCode,
+        students: session.students.map((s) => ({
+          studentId: s.studentId,
+          name: s.name,
+          flagged: s.flagged
+        }))
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
 
@@ -403,6 +460,6 @@ io.on('connection', (socket) => {
 });
 
 const PORT = process.env.PORT || 4000;
-server.listen(PORT, () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on http://10.64.101.40:${PORT}`);
 });

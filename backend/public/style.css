@@ -460,3 +460,13 @@ button:focus-visible {
   }
 }
 
+.student-card.flagged {
+  background: linear-gradient(135deg, rgba(127, 29, 29, 0.9), rgba(220, 38, 38, 0.16));
+  border: 1px solid rgba(248, 113, 113, 0.6);
+  box-shadow: 0 12px 28px rgba(220, 38, 38, 0.4);
+}
+
+.student-card.flagged .student-card-orb {
+  background: radial-gradient(circle, rgba(248, 113, 113, 0.4), transparent 65%);
+}
+

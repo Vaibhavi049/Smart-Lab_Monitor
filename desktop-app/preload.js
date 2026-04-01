@@ -1,11 +1,11 @@
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 const { io } = require('socket.io-client');
 
 let socket = null;
 
 function ensureSocket() {
   if (!socket) {
-    socket = io('http://localhost:4000', {
+    socket = io('http://10.64.101.40:4000', {
       autoConnect: false,
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -58,6 +58,15 @@ contextBridge.exposeInMainWorld('socketAPI', {
   },
   getId() {
     return socket ? socket.id : null;
+  },
+  startTracking() {
+    ipcRenderer.send('START_ACTIVITY_TRACKING');
+  },
+  stopTracking() {
+    ipcRenderer.send('STOP_ACTIVITY_TRACKING');
+  },
+  onActivityData(callback) {
+    ipcRenderer.on('ACTIVITY_DATA', (event, data) => callback(data));
   }
 });
 
