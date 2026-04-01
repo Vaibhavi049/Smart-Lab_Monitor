@@ -8,4 +8,3 @@ build/
 *.log
 *.spec
 __pycache__/
-*.exe
