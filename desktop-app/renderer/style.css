@@ -416,6 +416,36 @@ button:focus-visible {
   pointer-events: none;
 }
 
+.student-card.violating-status {
+  background: linear-gradient(
+      135deg,
+      rgba(69, 10, 10, 0.95),
+      rgba(220, 38, 38, 0.2)
+    ) !important;
+  border-color: rgba(239, 68, 68, 0.8) !important;
+  box-shadow: 0 0 20px rgba(220, 38, 38, 0.4) !important;
+  animation: pulseWarning 1.5s infinite;
+}
+
+.student-card.violating-status .student-activity-detail {
+  color: #fca5a5 !important;
+  font-weight: 600;
+}
+
+.student-card.violating-status .student-card-orb {
+  background: radial-gradient(
+    circle,
+    rgba(239, 68, 68, 0.4),
+    transparent 65%
+  );
+}
+
+@keyframes pulseWarning {
+  0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+}
+
 .student-message {
   margin-top: 12px;
   padding: 12px 14px;

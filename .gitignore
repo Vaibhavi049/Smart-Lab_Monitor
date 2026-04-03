@@ -8,3 +8,6 @@ build/
 *.log
 *.spec
 __pycache__/
+*.zip
+dist_manual/
+desktop-app/dist_manual/

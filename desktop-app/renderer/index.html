@@ -41,6 +41,10 @@
       </div>
 
       <div class="admin-info-row">
+        <div class="info-pill" style="border: 2px solid var(--accent-color); background-color: rgba(99, 102, 241, 0.1);">
+          <span class="label">Server IP Address (Share with Students)</span>
+          <span id="admin-server-ip" class="value large" style="color: var(--accent-color);">—</span>
+        </div>
         <div class="info-pill">
           <span class="label">Room Code</span>
           <span id="admin-room-code" class="value large">—</span>
@@ -56,6 +60,15 @@
       </div>
 
       <div class="admin-controls">
+        <div class="subject-selection" id="subject-selection" style="margin-bottom: 15px; width: 100%; display: flex; gap: 20px; align-items: center; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+          <span style="font-weight: 500; font-size: 0.9rem; color: var(--text-color);">Select Subject:</span>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="subject" value="ML"> Machine Learning (ML)
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="subject" value="DBMS"> Database (DBMS)
+          </label>
+        </div>
         <button id="start-session-btn" class="primary-btn">Start Session</button>
         <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
         <button id="stop-monitoring-btn" class="ghost-btn" disabled>Stop Monitoring</button>
@@ -89,12 +102,11 @@
           />
         </div>
         <div class="field-group">
-          <label for="student-name">Your Name</label>
+          <label for="student-server-ip">Teacher's Server IP Address</label>
           <input
-            id="student-name"
+            id="student-server-ip"
             type="text"
-            maxlength="50"
-            placeholder="Enter your display name"
+            placeholder="e.g. 192.168.1.50"
             autocomplete="off"
           />
         </div>

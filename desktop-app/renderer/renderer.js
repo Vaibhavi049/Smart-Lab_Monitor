@@ -1,6 +1,8 @@
-const socketAPI = window.socketAPI;
+// socketAPI is exposed globally via preload.js
+
 
 const $ = (id) => document.getElementById(id);
+
 
 const roleSelectionCard = $('role-selection');
 const adminDashboardCard = $('admin-dashboard');
@@ -25,7 +27,7 @@ const studentsSubtitle = $('students-subtitle');
 const studentBackBtn = $('student-back-btn');
 const studentLeaveBtn = $('student-leave-btn');
 const studentRoomCodeInput = $('student-room-code');
-const studentNameInput = $('student-name');
+const studentServerIpInput = $('student-server-ip');
 const joinSessionBtn = $('join-session-btn');
 const studentJoinError = $('student-join-error');
 
@@ -42,6 +44,7 @@ let currentRole = null;
 let adminRoomCode = null;
 let adminMonitoringStatus = 'stopped';
 let adminStudents = [];
+let activeSubject = null;
 let studentSession = {
   roomCode: null,
   name: null,
@@ -103,6 +106,31 @@ function setStudentMonitoringStatus(status) {
   }
 }
 
+function evaluateActivity(activity, subject) {
+  if (!activity || !activity.windowTitle || activity.windowTitle === 'N/A') return true;
+  
+  const title = activity.windowTitle.toLowerCase();
+  const process = (activity.processName || '').toLowerCase();
+  
+  // System windows are always OK
+  if (title.includes('task manager') || title.includes('program manager') || title.includes('settings') || title.includes('smartlab')) return true;
+
+  const rules = {
+    'ML': ['classroom', 'colab', 'explorer', 'file browser', 'code', 'visual studio'],
+    'DBMS': ['sql plus', 'sqlplus', 'sqldeveloper', 'oracle', 'classroom', 'gmail']
+  };
+
+  const allowedKeywords = rules[subject];
+  if (!allowedKeywords) return true; // Fail-safe fallback
+
+  for (const keyword of allowedKeywords) {
+    if (title.includes(keyword) || process.includes(keyword)) {
+      return true; // Authorized
+    }
+  }
+  return false; // Unauthorized!
+}
+
 function renderAdminStudents() {
   studentsGrid.innerHTML = '';
   adminStudentCountEl.textContent = adminStudents.length.toString();
@@ -112,7 +140,7 @@ function renderAdminStudents() {
     return;
   }
 
-  studentsSubtitle.textContent = 'Live list of connected students.';
+  studentsSubtitle.textContent = `Live list of connected students (Subject: ${activeSubject || 'None'})`;
 
   adminStudents.forEach((student) => {
     const card = document.createElement('div');
@@ -135,8 +163,35 @@ function renderAdminStudents() {
     header.appendChild(nameEl);
     header.appendChild(idEl);
     card.appendChild(header);
-    card.appendChild(orb);
 
+    // Render Activity Details
+    if (student.lastActivity && student.lastActivity.windowTitle) {
+      const activityDiv = document.createElement('div');
+      activityDiv.className = 'student-activity-detail';
+      activityDiv.style.marginTop = '12px';
+      activityDiv.style.fontSize = '0.85rem';
+      
+      const titleSpan = document.createElement('div');
+      titleSpan.textContent = `Window: ${student.lastActivity.windowTitle}`;
+      titleSpan.style.whiteSpace = 'nowrap';
+      titleSpan.style.overflow = 'hidden';
+      titleSpan.style.textOverflow = 'ellipsis';
+      
+      const procSpan = document.createElement('div');
+      procSpan.textContent = `Process: ${student.lastActivity.processName || 'Unknown'}`;
+      procSpan.style.opacity = '0.7';
+
+      activityDiv.appendChild(titleSpan);
+      activityDiv.appendChild(procSpan);
+      card.appendChild(activityDiv);
+    }
+
+    // Use the server's flagged status directly (the server runs the rule engine)
+    if (student.flagged && adminMonitoringStatus === 'active') {
+      card.classList.add('violating-status');
+    }
+
+    card.appendChild(orb);
     studentsGrid.appendChild(card);
   });
 }
@@ -145,6 +200,7 @@ function resetAdminState() {
   adminRoomCode = null;
   adminMonitoringStatus = 'stopped';
   adminStudents = [];
+  activeSubject = null;
 
   adminRoomCodeEl.textContent = '—';
   setAdminMonitoringStatus('stopped');
@@ -152,7 +208,13 @@ function resetAdminState() {
   studentsGrid.innerHTML = '';
   studentsSubtitle.textContent = 'Waiting for students to join...';
 
-  startSessionBtn.disabled = false;
+  // Reactivate subject radios
+  document.querySelectorAll('input[name="subject"]').forEach(radio => {
+    radio.disabled = false;
+    radio.checked = false;
+  });
+
+  startSessionBtn.disabled = true; // Disabled initially until subject chosen
   startMonitoringBtn.disabled = true;
   stopMonitoringBtn.disabled = true;
   endSessionBtn.disabled = true;
@@ -166,7 +228,7 @@ function resetStudentState() {
     monitoringStatus: 'stopped'
   };
   studentRoomCodeInput.value = '';
-  studentNameInput.value = '';
+  studentServerIpInput.value = '';
   studentJoinError.textContent = '';
   studentJoinError.classList.add('hidden');
 
@@ -225,6 +287,7 @@ function setupSocketEventHandlers() {
     const { roomCode, students } = payload || {};
     if (!roomCode || roomCode !== adminRoomCode) return;
 
+    console.log('[DEBUG] STUDENT_LIST_UPDATED received:', JSON.stringify(students));
     adminStudents = students || [];
     renderAdminStudents();
   });
@@ -258,11 +321,35 @@ function setupSocketEventHandlers() {
   });
 }
 
-adminBtn.addEventListener('click', () => {
+let currentUser = null;
+
+adminBtn.addEventListener('click', async () => {
   currentRole = 'admin';
-  resetAdminState();
-  socketAPI.connect();
-  showCard(adminDashboardCard);
+  const oldText = adminBtn.textContent;
+  adminBtn.textContent = 'Authenticating in browser...';
+  
+  try {
+    const authRes = await socketAPI.loginOAuth();
+    if(!authRes.success) {
+      alert('Login Failed: ' + authRes.error);
+      return;
+    }
+    currentUser = authRes.user;
+
+    const hostRes = await socketAPI.startHostServer();
+    if(!hostRes.success) {
+      alert('Failed to start server locally: ' + hostRes.error);
+      return;
+    }
+    
+    $('admin-server-ip').textContent = hostRes.ip;
+    
+    resetAdminState();
+    socketAPI.connect(hostRes.ip);
+    showCard(adminDashboardCard);
+  } finally {
+    adminBtn.textContent = oldText;
+  }
 });
 
 adminBackBtn.addEventListener('click', () => {
@@ -284,21 +371,40 @@ adminBackBtn.addEventListener('click', () => {
   }
 });
 
-startSessionBtn.addEventListener('click', () => {
-  socketAPI.connect();
+// Unblock session start when radio is clicked
+document.querySelectorAll('input[name="subject"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (!adminRoomCode) {
+      startSessionBtn.disabled = false; // Allow session creation
+    }
+  });
+});
 
-  socketAPI.emit('CREATE_SESSION', {}, (response) => {
+startSessionBtn.addEventListener('click', () => {
+  const selectedRadio = document.querySelector('input[name="subject"]:checked');
+  if (!selectedRadio) {
+    alert('Please select a subject (ML or DBMS) before starting the session.');
+    return;
+  }
+  
+  console.log('Starting session for subject:', selectedRadio.value);
+
+  socketAPI.emit('CREATE_SESSION', { subject: selectedRadio.value }, (response) => {
     if (!response || !response.success) {
       alert(response?.error || 'Failed to create session.');
       return;
     }
     const { session } = response;
+    activeSubject = selectedRadio.value;
     adminRoomCode = session.roomCode;
     adminRoomCodeEl.textContent = adminRoomCode;
 
     setAdminMonitoringStatus(session.monitoringStatus || 'stopped');
     adminStudents = session.students || [];
     renderAdminStudents();
+
+    // Lock subject
+    document.querySelectorAll('input[name="subject"]').forEach(r => r.disabled = true);
 
     startSessionBtn.disabled = true;
     startMonitoringBtn.disabled = false;
@@ -351,12 +457,25 @@ endSessionBtn.addEventListener('click', () => {
   });
 });
 
-studentBtn.addEventListener('click', () => {
+studentBtn.addEventListener('click', async () => {
   currentRole = 'student';
-  resetStudentState();
-  socketAPI.connect();
-  showCard(studentJoinCard);
-  studentRoomCodeInput.focus();
+  const oldText = studentBtn.textContent;
+  studentBtn.textContent = 'Authenticating in browser...';
+  
+  try {
+    const authRes = await socketAPI.loginOAuth();
+    if(!authRes.success) {
+      alert('Login Failed: ' + authRes.error);
+      return;
+    }
+    currentUser = authRes.user;
+    
+    resetStudentState();
+    showCard(studentJoinCard);
+    studentRoomCodeInput.focus();
+  } finally {
+    studentBtn.textContent = oldText;
+  }
 });
 
 studentBackBtn.addEventListener('click', () => {
@@ -367,48 +486,54 @@ studentBackBtn.addEventListener('click', () => {
 
 joinSessionBtn.addEventListener('click', () => {
   const roomCode = (studentRoomCodeInput.value || '').toUpperCase().trim();
-  const name = (studentNameInput.value || '').trim();
+  const serverIp = (studentServerIpInput.value || '').trim();
+  const name = currentUser ? currentUser.name : 'Unknown Student';
 
   if (!roomCode || roomCode.length !== 6) {
     studentJoinError.textContent = 'Please enter a valid 6-character room code.';
     studentJoinError.classList.remove('hidden');
     return;
   }
-  if (!name) {
-    studentJoinError.textContent = 'Please enter your name.';
+  if (!serverIp) {
+    studentJoinError.textContent = 'Please enter the Teacher\'s Server IP Address.';
     studentJoinError.classList.remove('hidden');
     return;
   }
 
   studentJoinError.classList.add('hidden');
 
-  socketAPI.connect();
-  socketAPI.emit(
-    'JOIN_SESSION',
-    { roomCode, name },
-    (response) => {
-      if (!response || !response.success) {
-        studentJoinError.textContent = response?.error || 'Failed to join session.';
-        studentJoinError.classList.remove('hidden');
-        return;
+  socketAPI.connect(serverIp);
+  
+  // Need to wait slightly for socket to connect before emitting join info
+  setTimeout(() => {
+    socketAPI.emit(
+      'JOIN_SESSION',
+      { roomCode, name },
+      (response) => {
+        if (!response || !response.success) {
+          studentJoinError.textContent = response?.error || 'Failed to join session.';
+          studentJoinError.classList.remove('hidden');
+          socketAPI.disconnect();
+          return;
+        }
+
+        const { session, student } = response;
+        studentSession.roomCode = session.roomCode;
+        studentSession.name = student?.name || name;
+        studentSession.studentId = student?.studentId || null;
+        setStudentMonitoringStatus(session.monitoringStatus || 'stopped');
+        if (session.monitoringStatus === 'active') {
+          socketAPI.startTracking();
+        }
+
+        studentSessionRoomCodeEl.textContent = studentSession.roomCode;
+        studentDisplayNameEl.textContent = studentSession.name;
+        studentSessionSubtitle.textContent = 'You are connected to the session.';
+
+        showCard(studentSessionCard);
       }
-
-      const { session, student } = response;
-      studentSession.roomCode = session.roomCode;
-      studentSession.name = student?.name || name;
-      studentSession.studentId = student?.studentId || null;
-      setStudentMonitoringStatus(session.monitoringStatus || 'stopped');
-      if (session.monitoringStatus === 'active') {
-        socketAPI.startTracking();
-      }
-
-      studentSessionRoomCodeEl.textContent = studentSession.roomCode;
-      studentDisplayNameEl.textContent = studentSession.name;
-      studentSessionSubtitle.textContent = 'You are connected to the session.';
-
-      showCard(studentSessionCard);
-    }
-  );
+    );
+  }, 300); // 300ms buffer for connect stream
 });
 
 studentLeaveBtn.addEventListener('click', () => {
@@ -416,6 +541,7 @@ studentLeaveBtn.addEventListener('click', () => {
   if (!confirmed) return;
 
   socketAPI.stopTracking();
+  socketAPI.disconnect();
   resetStudentState();
   currentRole = null;
   showCard(roleSelectionCard);

@@ -5,9 +5,6 @@ const cors = require('cors');
 const path = require('path');
 const { Server } = require('socket.io');
 const crypto = require('crypto');
-const session = require('express-session');
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 const server = http.createServer(app);
@@ -22,93 +19,11 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-app.use(session({
-  secret: 'smartlab-secret-key',
-  resave: false,
-  saveUninitialized: false
-}));
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID || 'mock-client-id',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'mock-client-secret',
-    callbackURL: "/auth/google/callback"
-  },
-  function(accessToken, refreshToken, profile, cb) {
-    const email = (profile.emails && profile.emails.length > 0) ? profile.emails[0].value : '';
-    if (!email.endsWith('@rknec.edu')) {
-       return cb(null, false, { message: 'Unauthorized domain' });
-    }
-    const user = {
-      name: profile.displayName,
-      email: email,
-      id: profile.id
-    };
-    return cb(null, user);
-  }
-));
-
 const publicDir = path.join(__dirname, 'public');
 app.use(express.static(publicDir));
 
-app.get('/auth/google', (req, res, next) => {
-  const role = req.query.role || 'student';
-  const state = Buffer.from(JSON.stringify({ role })).toString('base64');
-  passport.authenticate('google', { scope: ['profile', 'email'], state })(req, res, next);
-});
-
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/unauthorized' }),
-  function(req, res) {
-    let target = '/student-dashboard';
-    if (req.query.state) {
-      try {
-        const decoded = JSON.parse(Buffer.from(req.query.state, 'base64').toString('ascii'));
-        if (decoded.role === 'admin') target = '/admin-dashboard';
-      } catch (e) {
-        console.error("Error decoding state", e);
-      }
-    }
-    res.redirect(target);
-  }
-);
-
-app.get('/admin-dashboard', (req, res) => {
-  if (!req.isAuthenticated()) return res.redirect('/');
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
-
-app.get('/student-dashboard', (req, res) => {
-  if (!req.isAuthenticated()) return res.redirect('/');
-  res.sendFile(path.join(publicDir, 'index.html'));
-});
-
-app.get('/api/user', (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json(req.user);
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
-  }
-});
-
-app.get('/unauthorized', (req, res) => {
-  res.send(`
-    <div style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-      <h1>Unauthorized Access</h1>
-      <p>Only @rknec.edu accounts are allowed.</p>
-      <a href="/">Go Back</a>
-    </div>
-  `);
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 const sessions = {};
@@ -151,10 +66,6 @@ function findSessionByAdminSocket(socketId) {
   return null;
 }
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
@@ -163,12 +74,7 @@ io.on('connection', (socket) => {
     try {
       const existing = findSessionByAdminSocket(socket.id);
       if (existing) {
-        if (callback) {
-          return callback({
-            success: false,
-            error: 'Admin already has an active session.'
-          });
-        }
+        if (callback) return callback({ success: false, error: 'Admin already has an active session.' });
         return;
       }
 
@@ -201,12 +107,7 @@ io.on('connection', (socket) => {
       }
     } catch (err) {
       console.error('Error in CREATE_SESSION:', err);
-      if (callback) {
-        callback({
-          success: false,
-          error: 'Internal server error.'
-        });
-      }
+      if (callback) callback({ success: false, error: 'Internal server error.' });
     }
   });
 
@@ -224,11 +125,7 @@ io.on('connection', (socket) => {
     }
 
     session.monitoringStatus = 'active';
-    io.to(roomCode).emit('MONITORING_STARTED', {
-      roomCode,
-      monitoringStatus: session.monitoringStatus
-    });
-
+    io.to(roomCode).emit('MONITORING_STARTED', { roomCode, monitoringStatus: session.monitoringStatus });
     if (callback) callback({ success: true });
   });
 
@@ -246,11 +143,7 @@ io.on('connection', (socket) => {
     }
 
     session.monitoringStatus = 'stopped';
-    io.to(roomCode).emit('MONITORING_STOPPED', {
-      roomCode,
-      monitoringStatus: session.monitoringStatus
-    });
-
+    io.to(roomCode).emit('MONITORING_STOPPED', { roomCode, monitoringStatus: session.monitoringStatus });
     if (callback) callback({ success: true });
   });
 
@@ -258,12 +151,8 @@ io.on('connection', (socket) => {
     const { roomCode } = payload || {};
     const session = sessions[roomCode];
 
-    if (!session) {
-      if (callback) callback({ success: false, error: 'Session not found.' });
-      return;
-    }
-    if (session.adminSocketId !== socket.id) {
-      if (callback) callback({ success: false, error: 'Not authorized.' });
+    if (!session || session.adminSocketId !== socket.id) {
+      if (callback) callback({ success: false, error: 'Not authorized or not found.' });
       return;
     }
 
@@ -271,9 +160,7 @@ io.on('connection', (socket) => {
 
     for (const student of session.students) {
       const studentSocket = io.sockets.sockets.get(student.socketId);
-      if (studentSocket) {
-        studentSocket.leave(roomCode);
-      }
+      if (studentSocket) studentSocket.leave(roomCode);
     }
     socket.leave(roomCode);
 
@@ -288,23 +175,13 @@ io.on('connection', (socket) => {
     const roomCode = (rawCode || '').toUpperCase().trim();
 
     if (!roomCode || !name || !name.trim()) {
-      if (callback) {
-        callback({
-          success: false,
-          error: 'Room code and name are required.'
-        });
-      }
+      if (callback) callback({ success: false, error: 'Room code and name are required.' });
       return;
     }
 
     const session = sessions[roomCode];
     if (!session) {
-      if (callback) {
-        callback({
-          success: false,
-          error: 'Session not found. Check the room code.'
-        });
-      }
+      if (callback) callback({ success: false, error: 'Session not found. Check the room code.' });
       return;
     }
 
@@ -314,59 +191,40 @@ io.on('connection', (socket) => {
       const student = {
         socketId: socket.id,
         studentId,
-        name: name.trim()
+        name: name.trim(),
+        flagged: false
       };
       session.students.push(student);
 
       socket.join(roomCode);
 
-      console.log(
-        `Student joined: roomCode=${roomCode}, name=${student.name}, socketId=${socket.id}`
-      );
+      console.log(`Student joined: roomCode=${roomCode}, name=${student.name}, socketId=${socket.id}`);
 
-      io.to(roomCode).emit('STUDENT_JOINED', {
-        roomCode,
-        student
-      });
+      io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student });
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
-        students: session.students.map((s) => ({
-          studentId: s.studentId,
-          name: s.name
-        }))
+        students: session.students.map((s) => ({ studentId: s.studentId, name: s.name, flagged: s.flagged, lastActivity: s.lastActivity || null }))
       });
 
       if (callback) {
         callback({
           success: true,
-          session: {
-            roomCode,
-            monitoringStatus: session.monitoringStatus
-          },
-          student: {
-            studentId: student.studentId,
-            name: student.name
-          }
+          session: { roomCode, monitoringStatus: session.monitoringStatus },
+          student: { studentId: student.studentId, name: student.name }
         });
       }
     } else {
-      if (callback) {
-        callback({
-          success: true,
-          session: {
-            roomCode,
-            monitoringStatus: session.monitoringStatus
-          }
-        });
-      }
+      if (callback) callback({ success: true, session: { roomCode, monitoringStatus: session.monitoringStatus }});
     }
   });
 
-  // Rule engine configurations
   const RULES = {
-    ML: ['colab', 'classroom', 'gmail'],
-    DBMS: ['classroom', 'sql plus', 'sqlplus']
+    ML: ['colab', 'classroom', 'explorer', 'file browser', 'code', 'visual studio'],
+    DBMS: ['classroom', 'sql plus', 'sqlplus', 'sqldeveloper', 'oracle', 'gmail']
   };
+
+  // System windows that should be ignored for ALL subjects
+  const SYSTEM_SKIP = ['task manager', 'program manager', 'settings', 'smartlab'];
 
   socket.on('ACTIVITY_UPDATE', (payload) => {
     const sessionInfo = findSessionByStudentSocket(socket.id);
@@ -378,20 +236,47 @@ io.on('connection', (socket) => {
     const { windows, processes } = payload || {};
     const allowedKeywords = RULES[session.subject] || [];
 
+    // Build a combined list of all titles and process names for checking
+    const allItems = [
+      ...(windows || []).map(w => w.toLowerCase()),
+      ...(processes || []).map(p => p.toLowerCase())
+    ];
+
+    // Determine the "active" window title (first non-system window)
+    const activeWindow = (windows || []).find(w => {
+      const lw = w.toLowerCase();
+      return !SYSTEM_SKIP.some(skip => lw.includes(skip));
+    }) || (windows && windows[0]) || 'N/A';
+
+    // Determine the active process
+    const activeProcess = (processes || [])[0] || 'Unknown';
+
     let isFlagged = false;
 
-    // Strict whitelisting: if ANY active WINDOW doesn't match ALLOWED keywords, flag them.
+    // Check each window title (skip system windows)
     for (const item of (windows || [])) {
       const lowerItem = item.toLowerCase();
-      
-      // Skip generic OS items that shouldn't trigger flags automatically
-      if (lowerItem.includes('explorer') || lowerItem.includes('task manager') || lowerItem.includes('program manager')) continue;
+      if (SYSTEM_SKIP.some(skip => lowerItem.includes(skip))) continue;
 
       let isAllowed = false;
       for (const keyword of allowedKeywords) {
         if (lowerItem.includes(keyword)) {
           isAllowed = true;
           break;
+        }
+      }
+
+      // Also check if any allowed keyword matches a running process
+      if (!isAllowed) {
+        for (const proc of (processes || [])) {
+          const lowerProc = proc.toLowerCase();
+          for (const keyword of allowedKeywords) {
+            if (lowerProc.includes(keyword)) {
+              isAllowed = true;
+              break;
+            }
+          }
+          if (isAllowed) break;
         }
       }
       
@@ -402,19 +287,19 @@ io.on('connection', (socket) => {
     }
 
     const student = session.students[studentIndex];
-    if (student.flagged !== isFlagged) {
-      student.flagged = isFlagged;
-      
-      // Broadcast updated student list including the flag state
-      io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
-        roomCode,
-        students: session.students.map((s) => ({
-          studentId: s.studentId,
-          name: s.name,
-          flagged: s.flagged
-        }))
-      });
-    }
+    student.flagged = isFlagged;
+    student.lastActivity = { windowTitle: activeWindow, processName: activeProcess };
+
+    // Always emit so teacher sees live activity updates
+    io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
+      roomCode,
+      students: session.students.map((s) => ({
+        studentId: s.studentId,
+        name: s.name,
+        flagged: s.flagged,
+        lastActivity: s.lastActivity || null
+      }))
+    });
   });
 
   socket.on('disconnect', () => {
@@ -426,12 +311,9 @@ io.on('connection', (socket) => {
       const session = sessions[roomCode];
       if (session) {
         io.to(roomCode).emit('SESSION_ENDED', { roomCode });
-
         for (const student of session.students) {
           const studentSocket = io.sockets.sockets.get(student.socketId);
-          if (studentSocket) {
-            studentSocket.leave(roomCode);
-          }
+          if (studentSocket) studentSocket.leave(roomCode);
         }
         delete sessions[roomCode];
         console.log(`Session auto-ended due to admin disconnect: roomCode=${roomCode}`);
@@ -444,15 +326,15 @@ io.on('connection', (socket) => {
       const { session, roomCode, studentIndex } = studentSessionInfo;
       const [removed] = session.students.splice(studentIndex, 1);
 
-      console.log(
-        `Student disconnected: roomCode=${roomCode}, studentId=${removed.studentId}, name=${removed.name}`
-      );
+      console.log(`Student disconnected: roomCode=${roomCode}, studentId=${removed.studentId}, name=${removed.name}`);
 
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
         students: session.students.map((s) => ({
           studentId: s.studentId,
-          name: s.name
+          name: s.name,
+          flagged: s.flagged,
+          lastActivity: s.lastActivity || null
         }))
       });
     }
@@ -461,5 +343,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on http://localhost:${PORT}`);
+  console.log(`SmartLab server listening on http://0.0.0.0:${PORT}`);
 });

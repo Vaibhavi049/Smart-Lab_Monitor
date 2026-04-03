@@ -71,6 +71,12 @@ contextBridge.exposeInMainWorld('socketAPI', {
   },
   onActivityData(callback) {
     ipcRenderer.on('ACTIVITY_DATA', (event, data) => callback(data));
+  },
+  loginOAuth() {
+    return ipcRenderer.invoke('START_OAUTH_LOGIN');
+  },
+  startHostServer() {
+    return ipcRenderer.invoke('START_HOST_SERVER');
   }
 });
 
