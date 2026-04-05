@@ -1,10 +1,21 @@
-const { app, BrowserWindow, nativeTheme, ipcMain, shell } = require('electron');
-const path = require('path');
+const path = require("path");
+const dotenv = require("dotenv");
+
+// Load correct .env based on environment
+const envPath = process.env.NODE_ENV === "development"
+  ? path.join(__dirname, ".env")
+  : path.join(process.resourcesPath, ".env");
+
+dotenv.config({ path: envPath });
+
+// Electron imports
+const { app, BrowserWindow, nativeTheme, ipcMain, shell, desktopCapturer } = require('electron');
+
+// Other imports
 const { spawn, fork, exec } = require('child_process');
 const http = require('http');
 const os = require('os');
 
-require('dotenv').config();
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -200,6 +211,19 @@ ipcMain.handle('START_HOST_SERVER', async () => {
     return { success: true, ip: getLocalIpAddress() };
   } catch (e) {
     return { success: false, error: e.toString() };
+  }
+});
+
+ipcMain.handle('GET_SCREEN_SOURCE_ID', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({ types: ['screen'] });
+    if (sources && sources.length > 0) {
+      return sources[0].id;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to get screen sources:', error);
+    return null;
   }
 });
 

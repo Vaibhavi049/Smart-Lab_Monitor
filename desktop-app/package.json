@@ -16,6 +16,10 @@
     },
     "extraResources": [
       {
+        "from": ".env",
+        "to": ".env"
+      },
+      {
         "from": "activity_monitor.exe",
         "to": "activity_monitor.exe"
       },
@@ -45,6 +49,6 @@
   },
   "devDependencies": {
     "electron": "^31.0.0",
-    "electron-builder": "^25.0.0"
+    "electron-builder": "^25.1.8"
   }
 }

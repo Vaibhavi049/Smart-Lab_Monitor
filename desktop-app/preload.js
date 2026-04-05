@@ -77,6 +77,9 @@ contextBridge.exposeInMainWorld('socketAPI', {
   },
   startHostServer() {
     return ipcRenderer.invoke('START_HOST_SERVER');
+  },
+  getScreenSourceId() {
+    return ipcRenderer.invoke('GET_SCREEN_SOURCE_ID');
   }
 });
 

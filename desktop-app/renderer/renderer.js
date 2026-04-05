@@ -40,6 +40,10 @@ const studentSessionSubtitle = $('student-session-subtitle');
 const adminBtn = $('admin-btn');
 const studentBtn = $('student-btn');
 
+const webrtcModal = $('webrtc-modal');
+const remoteVideo = $('remoteVideo');
+const closeStreamBtn = $('close-stream-btn');
+
 let currentRole = null;
 let adminRoomCode = null;
 let adminMonitoringStatus = 'stopped';
@@ -51,6 +55,28 @@ let studentSession = {
   studentId: null,
   monitoringStatus: 'stopped'
 };
+
+let peerConnection = null;
+let currentStream = null;
+const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+function requestStudentStream(studentSocketId) {
+  if (peerConnection) peerConnection.close();
+  webrtcModal.classList.remove('hidden');
+  socketAPI.emit('REQUEST_STREAM', { targetSocketId: studentSocketId, adminSocketId: socketAPI.getId() });
+}
+
+if (closeStreamBtn) {
+  closeStreamBtn.addEventListener('click', () => {
+    webrtcModal.classList.add('hidden');
+    if (peerConnection) peerConnection.close();
+    peerConnection = null;
+    if (remoteVideo.srcObject) {
+      remoteVideo.srcObject.getTracks().forEach(t => t.stop());
+    }
+    remoteVideo.srcObject = null;
+  });
+}
 
 function showCard(card) {
   const all = [
@@ -186,6 +212,13 @@ function renderAdminStudents() {
       card.appendChild(activityDiv);
     }
 
+    const streamBtn = document.createElement('button');
+    streamBtn.className = 'primary-btn small';
+    streamBtn.style.marginTop = '12px';
+    streamBtn.textContent = 'View Screen';
+    streamBtn.onclick = () => requestStudentStream(student.socketId);
+    card.appendChild(streamBtn);
+
     // Use the server's flagged status directly (the server runs the rule engine)
     if (student.flagged && adminMonitoringStatus === 'active') {
       card.classList.add('violating-status');
@@ -317,6 +350,90 @@ function setupSocketEventHandlers() {
   socketAPI.onActivityData((data) => {
     if (studentSession.monitoringStatus === 'active') {
       socketAPI.emit('ACTIVITY_UPDATE', data);
+    }
+  });
+
+  // WebRTC events
+  socketAPI.on('REQUEST_STREAM', async (payload) => {
+    if (currentRole !== 'student') return;
+    const { adminSocketId } = payload || {};
+    
+    try {
+      const screenId = await socketAPI.getScreenSourceId();
+      if (!screenId) {
+        console.error('No screen source found');
+        return;
+      }
+
+      currentStream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: screenId
+          }
+        }
+      });
+
+      if (peerConnection) peerConnection.close();
+      peerConnection = new RTCPeerConnection(rtcConfig);
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socketAPI.emit('WEBRTC_ICE_CANDIDATE', { targetSocketId: adminSocketId, candidate: event.candidate });
+        }
+      };
+
+      currentStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, currentStream);
+      });
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      socketAPI.emit('WEBRTC_OFFER', { targetSocketId: adminSocketId, offer });
+
+    } catch (err) {
+      console.error('Error starting screen share', err);
+    }
+  });
+
+  socketAPI.on('WEBRTC_OFFER', async (payload) => {
+    if (currentRole !== 'admin') return;
+    const { offer, studentSocketId } = payload || {};
+    
+    if (peerConnection) peerConnection.close();
+    peerConnection = new RTCPeerConnection(rtcConfig);
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketAPI.emit('WEBRTC_ICE_CANDIDATE', { targetSocketId: studentSocketId, candidate: event.candidate });
+      }
+    };
+
+    peerConnection.ontrack = (event) => {
+      remoteVideo.srcObject = event.streams[0];
+    };
+
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    socketAPI.emit('WEBRTC_ANSWER', { targetSocketId: studentSocketId, answer });
+  });
+
+  socketAPI.on('WEBRTC_ANSWER', async (payload) => {
+    if (currentRole !== 'student') return;
+    const { answer } = payload || {};
+    if (peerConnection) {
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    }
+  });
+
+  socketAPI.on('WEBRTC_ICE_CANDIDATE', async (payload) => {
+    const { candidate } = payload || {};
+    if (peerConnection) {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     }
   });
 }

@@ -148,6 +148,16 @@
     </section>
   </main>
 
+  <div id="webrtc-modal" class="webrtc-modal hidden">
+    <div class="webrtc-modal-content card glass active">
+      <div class="webrtc-header">
+        <h3>Live Screen View</h3>
+        <button id="close-stream-btn" class="danger-btn small">Close Stream</button>
+      </div>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
   <script src="./renderer.js"></script>
 </body>
 </html>

@@ -203,7 +203,7 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student });
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
-        students: session.students.map((s) => ({ studentId: s.studentId, name: s.name, flagged: s.flagged, lastActivity: s.lastActivity || null }))
+        students: session.students.map((s) => ({ socketId: s.socketId, studentId: s.studentId, name: s.name, flagged: s.flagged, lastActivity: s.lastActivity || null }))
       });
 
       if (callback) {
@@ -294,6 +294,7 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
       roomCode,
       students: session.students.map((s) => ({
+        socketId: s.socketId,
         studentId: s.studentId,
         name: s.name,
         flagged: s.flagged,
@@ -301,6 +302,36 @@ io.on('connection', (socket) => {
       }))
     });
   });
+
+  // --- WebRTC Signaling ---
+  socket.on('REQUEST_STREAM', (payload) => {
+    const { targetSocketId, adminSocketId } = payload || {};
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('REQUEST_STREAM', { adminSocketId });
+    }
+  });
+
+  socket.on('WEBRTC_OFFER', (payload) => {
+    const { targetSocketId, offer } = payload || {};
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('WEBRTC_OFFER', { offer, studentSocketId: socket.id });
+    }
+  });
+
+  socket.on('WEBRTC_ANSWER', (payload) => {
+    const { targetSocketId, answer } = payload || {};
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('WEBRTC_ANSWER', { answer });
+    }
+  });
+
+  socket.on('WEBRTC_ICE_CANDIDATE', (payload) => {
+    const { targetSocketId, candidate } = payload || {};
+    if (targetSocketId) {
+      io.to(targetSocketId).emit('WEBRTC_ICE_CANDIDATE', { candidate });
+    }
+  });
+  // -------------------------
 
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
@@ -331,6 +362,7 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
         students: session.students.map((s) => ({
+          socketId: s.socketId,
           studentId: s.studentId,
           name: s.name,
           flagged: s.flagged,
