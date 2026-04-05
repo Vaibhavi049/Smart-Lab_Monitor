@@ -214,7 +214,7 @@ io.on('connection', (socket) => {
         });
       }
     } else {
-      if (callback) callback({ success: true, session: { roomCode, monitoringStatus: session.monitoringStatus }});
+      if (callback) callback({ success: true, session: { roomCode, monitoringStatus: session.monitoringStatus } });
     }
   });
 
@@ -279,7 +279,7 @@ io.on('connection', (socket) => {
           if (isAllowed) break;
         }
       }
-      
+
       if (!isAllowed) {
         isFlagged = true;
         break;
@@ -345,3 +345,7 @@ const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`SmartLab server listening on http://0.0.0.0:${PORT}`);
 });
+
+
+//
+//
