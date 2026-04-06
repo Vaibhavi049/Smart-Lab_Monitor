@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 
 const rootDir = 'd:/Monitoring/monitoring-app';
 const desktopDir = path.join(rootDir, 'desktop-app');
-const buildDir = path.join(desktopDir, 'dist_manual/SmartLab_Assist-win32-x64');
+const buildDir = path.join(desktopDir, 'dist/win-unpacked');
 const resourcesDir = path.join(buildDir, 'resources');
 
 
@@ -32,7 +32,17 @@ try {
     }
     copyFolderSync(path.join(rootDir, 'backend'), bundledBackend);
     
-    // 2. Install production dependencies in bundled backend
+    // 2. Copy desktop-app .env
+    console.log('Copying desktop-app .env...');
+    const desktopEnv = path.join(desktopDir, '.env');
+    const targetEnv = path.join(resourcesDir, '.env');
+    if (fs.existsSync(desktopEnv)) {
+        fs.copyFileSync(desktopEnv, targetEnv);
+    } else {
+        console.warn('Warning: desktop-app/.env not found!');
+    }
+
+    // 3. Install production dependencies in bundled backend
     console.log('Installing backend node_modules (production)...');
     execSync('npm install --omit=dev', { cwd: bundledBackend, stdio: 'inherit' });
     
