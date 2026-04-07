@@ -42,6 +42,19 @@ const studentSessionSubtitle = () => $('student-session-subtitle');
 const adminBtn = $('admin-btn');
 const studentBtn = $('student-btn');
 
+const webrtcModal = $('webrtc-modal');
+const remoteVideo = $('remoteVideo');
+const closeStreamBtn = $('close-stream-btn');
+
+let peerConnection = null;
+const rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
+
+function requestStudentStream(studentSocketId) {
+  if (peerConnection) peerConnection.close();
+  if (webrtcModal) webrtcModal.classList.remove('hidden');
+  socket.emit('REQUEST_STREAM', { targetSocketId: studentSocketId, adminSocketId: socket.id });
+}
+
 const adminLoginBtn = $('admin-login-btn');
 const studentLoginBtn = $('student-login-btn');
 let currentUser = null;
@@ -149,6 +162,35 @@ function renderAdminStudents() {
     header.appendChild(nameEl);
     header.appendChild(idEl);
     card.appendChild(header);
+
+    // Render Activity Details
+    if (student.lastActivity && student.lastActivity.windowTitle) {
+      const activityDiv = document.createElement('div');
+      activityDiv.className = 'student-activity-detail';
+      activityDiv.style.marginTop = '12px';
+      activityDiv.style.fontSize = '0.85rem';
+      
+      const titleSpan = document.createElement('div');
+      titleSpan.textContent = `Window: ${student.lastActivity.windowTitle}`;
+      titleSpan.style.whiteSpace = 'nowrap';
+      titleSpan.style.overflow = 'hidden';
+      titleSpan.style.textOverflow = 'ellipsis';
+      
+      const procSpan = document.createElement('div');
+      procSpan.textContent = `Process: ${student.lastActivity.processName || 'Unknown'}`;
+      procSpan.style.opacity = '0.7';
+
+      activityDiv.appendChild(titleSpan);
+      activityDiv.appendChild(procSpan);
+      card.appendChild(activityDiv);
+    }
+
+    const streamBtn = document.createElement('button');
+    streamBtn.className = 'primary-btn small';
+    streamBtn.style.marginTop = '12px';
+    streamBtn.textContent = 'View Screen';
+    streamBtn.onclick = () => requestStudentStream(student.socketId);
+    card.appendChild(streamBtn);
     card.appendChild(orb);
 
     studentsGrid.appendChild(card);
@@ -255,7 +297,54 @@ socket.on('MONITORING_STOPPED', (payload) => {
   }
 });
 
+socket.on('WEBRTC_OFFER', async (payload) => {
+  if (currentRole !== 'admin') return;
+  const { offer, studentSocketId } = payload || {};
+  
+  if (peerConnection) peerConnection.close();
+  peerConnection = new RTCPeerConnection(rtcConfig);
+
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('WEBRTC_ICE_CANDIDATE', { targetSocketId: studentSocketId, candidate: event.candidate });
+    }
+  };
+
+  peerConnection.ontrack = (event) => {
+    if (remoteVideo) remoteVideo.srcObject = event.streams[0];
+  };
+
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+
+  socket.emit('WEBRTC_ANSWER', { targetSocketId: studentSocketId, answer });
+});
+
+socket.on('WEBRTC_ICE_CANDIDATE', async (payload) => {
+  const { candidate } = payload || {};
+  if (peerConnection) {
+    try {
+      await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (e) {
+      console.error('Error adding ICE', e);
+    }
+  }
+});
+
 // Admin flow
+if (webrtcModal && closeStreamBtn) {
+  closeStreamBtn.addEventListener('click', () => {
+    webrtcModal.classList.add('hidden');
+    if (peerConnection) peerConnection.close();
+    peerConnection = null;
+    if (remoteVideo && remoteVideo.srcObject) {
+      remoteVideo.srcObject.getTracks().forEach(t => t.stop());
+    }
+    if (remoteVideo) remoteVideo.srcObject = null;
+  });
+}
+
 if (adminBtn) {
   adminBtn.addEventListener('click', () => {
     currentRole = 'admin';
