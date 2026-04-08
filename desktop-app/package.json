@@ -1,7 +1,9 @@
 {
   "name": "smartlab-assist",
   "version": "1.0.0",
-  "description": "Lab assistance tool",
+  "description": "SmartLab Assist - Realtime Proctoring & Monitoring System",
+  "author": "SmartLab Team",
+  "copyright": "Copyright © 2026 SmartLab Team",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -12,13 +14,9 @@
     "appId": "com.smartlab.assist",
     "productName": "SmartLab_Assist",
     "directories": {
-      "output": "dist"
+      "output": "SmartLab-Release"
     },
     "extraResources": [
-      {
-        "from": ".env",
-        "to": ".env"
-      },
       {
         "from": "activity_monitor.exe",
         "to": "activity_monitor.exe"
@@ -28,8 +26,13 @@
         "to": "backend",
         "filter": [
           "**/*",
-          "!public/**/*"
+          "!public/**/*",
+          "!.env"
         ]
+      },
+      {
+        "from": "../backend/.env",
+        "to": "backend/.env"
       }
     ],
     "files": [
@@ -39,7 +42,25 @@
       "package.json"
     ],
     "win": {
-      "target": "dir"
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": null,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SmartLab Assist"
     }
   },
   "dependencies": {

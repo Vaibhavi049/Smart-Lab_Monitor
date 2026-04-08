@@ -80,6 +80,9 @@ contextBridge.exposeInMainWorld('socketAPI', {
   },
   getScreenSourceId() {
     return ipcRenderer.invoke('GET_SCREEN_SOURCE_ID');
+  },
+  captureScreenSnapshot() {
+    return ipcRenderer.invoke('CAPTURE_SCREEN_SNAPSHOT');
   }
 });
 

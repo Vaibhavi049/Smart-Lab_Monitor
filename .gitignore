@@ -1,13 +1,15 @@
 node_modules/
-**/node_modules/
-dist/
-**/dist/
-build/
-**/build/
 .env
 *.log
-*.spec
-__pycache__/
+
+# Build artifacts
+desktop-app/dist/
+desktop-app/build/
 *.zip
-dist_manual/
-desktop-app/dist_manual/
+*.blockmap
+*.exe
+!desktop-app/activity_monitor.exe
+
+# OS files
+.DS_Store
+Thumbs.db
