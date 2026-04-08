@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Realtime Monitoring</title>
+  <title>SmartLab Monitoring</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="./style.css" />
   <script src="/socket.io/socket.io.js"></script>
@@ -19,7 +19,7 @@
     <!-- Role selection -->
     <section id="role-selection" class="card glass active">
       <div class="card-header">
-        <h1>Realtime Monitoring</h1>
+        <h1>SmartLab Monitoring</h1>
         <p>Choose your role to join a live session.</p>
       </div>
       <div class="card-body role-buttons">
@@ -27,7 +27,7 @@
         <button id="student-btn" class="secondary-btn">Login as Student</button>
       </div>
       <div class="card-footer subtle-text">
-        <span>No login, no tracking. Local network only.</span>
+        <span>Secure Google authentication required. Local network only.</span>
       </div>
     </section>
 
@@ -85,15 +85,14 @@
       </div>
 
       <div class="admin-controls">
-        <div style="margin-bottom: 15px; text-align: left;">
-          <label for="admin-subject" style="display: block; font-weight: bold; margin-bottom: 5px;">Select Subject:</label>
-          <select id="admin-subject" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1em;">
-            <option value="Computer Networks">Computer Networks</option>
-            <option value="Operating Systems">Operating Systems</option>
-            <option value="Database Management">Database Management</option>
-            <option value="Data Structures">Data Structures</option>
-            <option value="Software Engineering">Software Engineering</option>
-          </select>
+        <div style="margin-bottom: 15px; width: 100%; display: flex; gap: 20px; align-items: center; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+          <span style="font-weight: 500; font-size: 0.9rem;">Select Subject:</span>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="subject" value="ML"> Machine Learning (ML)
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="subject" value="DBMS"> Database (DBMS)
+          </label>
         </div>
         <button id="start-session-btn" class="primary-btn">Create Session</button>
         <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
@@ -112,8 +111,8 @@
       </div>
     </section>
 
-    <!-- Student join screen -->
-    <section id="student-join" class="card glass hidden">
+    <!-- Student login -->
+    <section id="student-join" class="card login-card hidden" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); text-align: center;">
       <div class="card-header">
         <h2 style="color: #333;">SmartLab Monitoring System</h2>
         <p style="color: #666; font-size: 1.1em; margin-bottom: 20px;">Student Login</p>
@@ -190,7 +189,16 @@
     </section>
   </main>
 
+  <div id="webrtc-modal" class="webrtc-modal hidden">
+    <div class="webrtc-modal-content card glass active">
+      <div class="webrtc-header">
+        <h3>Live Screen View</h3>
+        <button id="close-stream-btn" class="danger-btn small">Close Stream</button>
+      </div>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
   <script src="./app.js"></script>
 </body>
 </html>
-

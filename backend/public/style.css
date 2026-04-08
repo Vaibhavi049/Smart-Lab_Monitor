@@ -470,3 +470,52 @@ button:focus-visible {
   background: radial-gradient(circle, rgba(248, 113, 113, 0.4), transparent 65%);
 }
 
+
+/* WebRTC Modal */
+.webrtc-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(5, 8, 22, 0.85);
+  backdrop-filter: blur(8px);
+  padding: 24px;
+}
+
+.webrtc-modal.hidden {
+  display: none !important;
+}
+
+.webrtc-modal-content {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.95);
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+}
+
+.webrtc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.webrtc-header h3 {
+  color: white;
+  margin: 0;
+}
+
+#remoteVideo {
+  width: 100%;
+  border-radius: 12px;
+  background: #000;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}

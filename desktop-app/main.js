@@ -1,26 +1,26 @@
+const { app, BrowserWindow, nativeTheme, ipcMain, shell, desktopCapturer, session } = require('electron');
 const path = require("path");
 const dotenv = require("dotenv");
-
-// Load correct .env based on environment
-const envPath = process.env.NODE_ENV === "development"
-  ? path.join(__dirname, ".env")
-  : path.join(process.resourcesPath, ".env");
-
-dotenv.config({ path: envPath });
-
-// Electron imports
-const { app, BrowserWindow, nativeTheme, ipcMain, shell, desktopCapturer } = require('electron');
-
-// Other imports
 const { spawn, fork, exec } = require('child_process');
 const http = require('http');
 const os = require('os');
 
+// Load .env logic
+const envPath = app.isPackaged 
+  ? path.join(process.resourcesPath, "backend", ".env")
+  : path.join(__dirname, "..", "backend", ".env");
+dotenv.config({ path: envPath });
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
 let serverProcess = null;
+let activityInterval = null;
+let mainWindow = null;
+
+if (require('electron-squirrel-startup')) {
+  app.quit();
+}
 
 function getLocalIpAddress() {
   const interfaces = os.networkInterfaces();
@@ -34,16 +34,10 @@ function getLocalIpAddress() {
   return '127.0.0.1';
 }
 
-let activityProcess = null;
-
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
-
 function createWindow() {
-  const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+  mainWindow = new BrowserWindow({
+    width: 1210,
+    height: 820,
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#050816',
@@ -57,19 +51,35 @@ function createWindow() {
     }
   });
 
-  win.once('ready-to-show', () => {
-    win.show();
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
   });
 
-  win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 
-  win.webContents.on('console-message', (event, level, message, line, sourceId) => {
-    console.log(`[RENDERER CONSOLE]: ${message} (Line ${line})`);
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    console.log(`[RENDERER CONSOLE]: ${message}`);
   });
 }
 
+// ───── COMPACT READY HANDLER ─────
 app.on('ready', () => {
   nativeTheme.themeSource = 'dark';
+  
+  // Set permission handlers BEFORE creating window
+  session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
+    if (permission === 'media' || permission === 'display-capture') return true;
+    return false;
+  });
+
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media' || permission === 'display-capture') {
+      callback(true);
+    } else {
+      callback(false);
+    }
+  });
+
   createWindow();
 });
 
@@ -80,7 +90,7 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   if (serverProcess) serverProcess.kill();
-  if (activityProcess) activityProcess.kill();
+  if (activityInterval) clearInterval(activityInterval);
 });
 
 app.on('activate', () => {
@@ -89,103 +99,70 @@ app.on('activate', () => {
   }
 });
 
-let activityInterval = null;
+// ───── IPC HANDLERS ─────
 
 ipcMain.on('START_ACTIVITY_TRACKING', (event) => {
   if (activityInterval) return;
-
   console.log('Starting PowerShell activity monitor...');
-
   activityInterval = setInterval(() => {
-    // Use single quotes inside PowerShell to avoid cmd.exe double-quote mangling
     const psScript = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | ForEach-Object { @{windowTitle=$_.MainWindowTitle; processName=$_.Name} } | ConvertTo-Json -Compress`;
-
     exec(`powershell.exe -NoProfile -WindowStyle Hidden -Command "${psScript}"`, { timeout: 5000 }, (error, stdout, stderr) => {
-      if (error) {
-        console.error('PS Monitor error:', error.message);
-        return;
-      }
+      if (error || !stdout || stdout.trim() === '') return;
       try {
-        if (!stdout || stdout.trim() === '') return;
         const parsed = JSON.parse(stdout);
-
-        // The result might be a single object or an array of objects
         const results = Array.isArray(parsed) ? parsed : [parsed];
-
         const data = {
           windows: results.map(r => r.windowTitle),
           processes: results.map(r => (r.processName || '').toLowerCase())
         };
-
-        console.log('[ACTIVITY] Sending data with', data.windows.length, 'windows');
         event.reply('ACTIVITY_DATA', data);
-      } catch (parseErr) {
-        console.error('[ACTIVITY] Parse error:', parseErr.message, 'Raw:', stdout?.substring(0, 200));
-      }
+      } catch (e) {}
     });
   }, 2000);
 });
 
 ipcMain.on('STOP_ACTIVITY_TRACKING', () => {
   if (activityInterval) {
-    console.log('Stopping activity monitor...');
     clearInterval(activityInterval);
     activityInterval = null;
   }
 });
 
-
 ipcMain.handle('START_OAUTH_LOGIN', async () => {
-  return new Promise((resolve, reject) => {
-    const server = http.createServer();
+  return new Promise((resolve) => {
+    let resolved = false;
+    const safeResolve = (result) => { if (!resolved) { resolved = true; resolve(result); } };
+    const oauthServer = http.createServer();
     const port = 4000;
-
-    server.on('error', (err) => {
-      resolve({ success: false, error: 'Port 4000 is busy. Ensure no other server is running.' });
-    });
-
-    server.listen(port, 'localhost', () => {
+    oauthServer.on('error', (err) => { safeResolve({ success: false, error: 'Port 4000 is occupied.' }); });
+    const authTimeout = setTimeout(() => { try { oauthServer.close(); } catch (e) {} safeResolve({ success: false, error: 'Auth Timed out.' }); }, 120000);
+    oauthServer.listen(port, 'localhost', () => {
       const redirectUri = `http://localhost:${port}/auth/google/callback`;
-
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=code&scope=email%20profile`;
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email%20profile`;
       shell.openExternal(authUrl);
-
-      server.on('request', async (req, res) => {
-        if (req.url.includes('code=')) {
-          const urlParams = new URL(req.url, `http://localhost:${port}`);
-          const code = urlParams.searchParams.get('code');
-
-          res.end('<html><body style="font-family: sans-serif; text-align: center; margin-top: 100px;"><h2>Login successful!</h2><p>You can close this tab and return to the application.</p><script>window.close()</script></body></html>');
-          server.close();
-
+      oauthServer.on('request', (req, res) => {
+        if (!req.url || !req.url.includes('code=')) return;
+        const urlParams = new URL(req.url, `http://localhost:${port}`);
+        const code = urlParams.searchParams.get('code');
+        clearTimeout(authTimeout);
+        res.writeHead(200, { 'Content-Type': 'text/html', 'Connection': 'close' });
+        res.end('<html><body style="font-family: sans-serif; text-align: center; padding: 50px;"><h2>Login successful!</h2><p>Return to the app.</p></body></html>');
+        if (req.socket) req.socket.destroy();
+        oauthServer.close(async () => {
           try {
-            const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+            const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
               method: 'POST',
               headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: new URLSearchParams({
-                code,
-                client_id: GOOGLE_CLIENT_ID,
-                client_secret: GOOGLE_CLIENT_SECRET,
-                redirect_uri: redirectUri,
-                grant_type: 'authorization_code'
-              })
+              body: new URLSearchParams({ code, client_id: GOOGLE_CLIENT_ID, client_secret: GOOGLE_CLIENT_SECRET, redirect_uri: redirectUri, grant_type: 'authorization_code' })
             });
-            const tokenData = await tokenResponse.json();
-
-            const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-              headers: { Authorization: `Bearer ${tokenData.access_token}` }
-            });
-            const userData = await userResponse.json();
-
-            if (!userData.email.endsWith('@rknec.edu')) {
-              return resolve({ success: false, error: 'Only @rknec.edu accounts allowed.' });
-            }
-
-            resolve({ success: true, user: userData });
-          } catch (err) {
-            resolve({ success: false, error: 'Failed to fetch user profile.' });
-          }
-        }
+            const tokenData = await tokenRes.json();
+            if (tokenData.error) return safeResolve({ success: false, error: 'Token Failed.' });
+            const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', { headers: { Authorization: `Bearer ${tokenData.access_token}` } });
+            const userData = await userRes.json();
+            if (!userData.email || !userData.email.endsWith('@rknec.edu')) return safeResolve({ success: false, error: 'rknec.edu only.' });
+            safeResolve({ success: true, user: userData });
+          } catch (e) { safeResolve({ success: false, error: 'Auth Error.' }); }
+        });
       });
     });
   });
@@ -193,37 +170,29 @@ ipcMain.handle('START_OAUTH_LOGIN', async () => {
 
 ipcMain.handle('START_HOST_SERVER', async () => {
   if (serverProcess) return { success: true, ip: getLocalIpAddress() };
-
   try {
-    const serverJsPath = app.isPackaged
-      ? path.join(process.resourcesPath, 'backend', 'server.js')
-      : path.join(__dirname, '..', 'backend', 'server.js');
-
-    serverProcess = fork(serverJsPath, [], {
-      stdio: 'inherit',
-      env: { ...process.env, PORT: 4000 }
-    });
-
-    serverProcess.on('error', (err) => {
-      console.error('Failed to start local host server:', err);
-    });
-
+    const serverJsPath = app.isPackaged ? path.join(process.resourcesPath, 'backend', 'server.js') : path.join(__dirname, '..', 'backend', 'server.js');
+    serverProcess = fork(serverJsPath, [], { stdio: 'inherit', env: { ...process.env, PORT: 4000 } });
     return { success: true, ip: getLocalIpAddress() };
-  } catch (e) {
-    return { success: false, error: e.toString() };
-  }
+  } catch (e) { return { success: false, error: e.toString() }; }
 });
 
 ipcMain.handle('GET_SCREEN_SOURCE_ID', async () => {
   try {
     const sources = await desktopCapturer.getSources({ types: ['screen'] });
-    if (sources && sources.length > 0) {
-      return sources[0].id;
-    }
-    return null;
-  } catch (error) {
-    console.error('Failed to get screen sources:', error);
-    return null;
-  }
+    return (sources && sources.length > 0) ? sources[0].id : null;
+  } catch (e) { return null; }
 });
 
+// ───── NEW 100% RELIABLE CAPTURE HANDLER ─────
+ipcMain.handle('CAPTURE_SCREEN_SNAPSHOT', async () => {
+  try {
+    // Capture at high enough resolution for the teacher to read text
+    const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1280, height: 720 } });
+    if (sources && sources.length > 0) {
+      // Return high-quality JPEG as Base64 Data URL
+      return sources[0].thumbnail.toDataURL();
+    }
+  } catch (e) { console.error('Capture snapshot error:', e); }
+  return null;
+});

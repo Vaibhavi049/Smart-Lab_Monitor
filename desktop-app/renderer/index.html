@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <title>Monitoring App</title>
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; img-src 'self' data:;">
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss: http: https:; media-src 'self' mediastream: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="./style.css" />
 </head>
@@ -151,13 +151,15 @@
   <div id="webrtc-modal" class="webrtc-modal hidden">
     <div class="webrtc-modal-content card glass active">
       <div class="webrtc-header">
-        <h3>Live Screen View</h3>
-        <button id="close-stream-btn" class="danger-btn small">Close Stream</button>
+        <h3>Live Monitor: <span id="monitor-mode" style="font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); padding: 2px 8px; border-radius: 4px; color: var(--accent-color);">Checking...</span></h3>
+        <button id="close-stream-btn" class="danger-btn small">Close View</button>
       </div>
-      <video id="remoteVideo" autoplay playsinline></video>
+      <video id="remoteVideo" autoplay playsinline class="hidden"></video>
+      <img id="remoteSnapshot" class="hidden" style="width: 100%; border-radius: 12px; aspect-ratio: 16/9; object-fit: contain; background: #000;" />
     </div>
   </div>
 
+  <script src="./modules/streamer.js"></script>
   <script src="./renderer.js"></script>
 </body>
 </html>
