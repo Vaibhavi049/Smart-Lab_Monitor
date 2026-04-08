@@ -159,6 +159,17 @@
     </div>
   </div>
 
+  <div id="flag-logs-modal" class="webrtc-modal hidden">
+    <div class="webrtc-modal-content card glass active" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
+      <div class="webrtc-header">
+        <h3>Flag History: <span id="flag-logs-student-name" style="color: var(--accent-color);"></span></h3>
+        <button id="close-logs-btn" class="danger-btn small">Close</button>
+      </div>
+      <div id="flag-logs-container" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+      </div>
+    </div>
+  </div>
+
   <script src="./modules/streamer.js"></script>
   <script src="./renderer.js"></script>
 </body>

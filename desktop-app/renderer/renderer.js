@@ -46,6 +46,11 @@ const remoteSnapshot = $('remoteSnapshot');
 const monitorModeEl = $('monitor-mode');
 const closeStreamBtn = $('close-stream-btn');
 
+const flagLogsModal = $('flag-logs-modal');
+const closeLogsBtn = $('close-logs-btn');
+const flagLogsContainer = $('flag-logs-container');
+const flagLogsStudentName = $('flag-logs-student-name');
+
 // --- Global Config & State ---
 let currentRole = null;
 let adminRoomCode = null;
@@ -169,15 +174,51 @@ function renderAdminStudents() {
       activityDiv.appendChild(procSpan);
       card.appendChild(activityDiv);
     }
+    const btnContainer = document.createElement('div');
+    btnContainer.style.display = 'flex';
+    btnContainer.style.gap = '8px';
+    btnContainer.style.marginTop = '12px';
+
     const streamBtn = document.createElement('button');
     streamBtn.className = 'primary-btn small';
-    streamBtn.style.marginTop = '12px';
     streamBtn.textContent = 'View Screen';
     streamBtn.onclick = () => {
        if (webrtcModal) webrtcModal.classList.remove('hidden');
        streamer.startView(student.socketId, remoteVideo, remoteSnapshot);
     };
-    card.appendChild(streamBtn);
+    
+    const logsBtn = document.createElement('button');
+    logsBtn.className = 'secondary-btn small';
+    logsBtn.textContent = 'View Logs';
+    logsBtn.onclick = () => {
+       if (flagLogsModal) {
+          if (flagLogsStudentName) flagLogsStudentName.textContent = student.name;
+          if (flagLogsContainer) {
+             flagLogsContainer.innerHTML = '';
+             const logs = student.flagLogs || [];
+             if (logs.length === 0) {
+                flagLogsContainer.innerHTML = '<p style="color: #a1a1aa; font-size: 0.9rem;">No unauthorized activity recorded.</p>';
+             } else {
+                logs.forEach(log => {
+                   const timeString = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                   const logEl = document.createElement('div');
+                   logEl.style.padding = '8px 12px';
+                   logEl.style.background = 'rgba(239, 68, 68, 0.1)';
+                   logEl.style.borderLeft = '3px solid #ef4444';
+                   logEl.style.borderRadius = '4px';
+                   logEl.style.fontSize = '0.85rem';
+                   logEl.textContent = `${timeString} - Unauthorized Window: ${log.windowTitle}`;
+                   flagLogsContainer.appendChild(logEl);
+                });
+             }
+          }
+          flagLogsModal.classList.remove('hidden');
+       }
+    };
+
+    btnContainer.appendChild(streamBtn);
+    btnContainer.appendChild(logsBtn);
+    card.appendChild(btnContainer);
     if (student.flagged && adminMonitoringStatus === 'active') card.classList.add('violating-status');
     card.appendChild(orb);
     studentsGrid.appendChild(card);
@@ -358,6 +399,12 @@ if (closeStreamBtn) {
         if (webrtcModal) webrtcModal.classList.add('hidden');
         socketAPI.emit('STOP_LIVE_VIEW', { roomCode: adminRoomCode });
         streamer.cleanup();
+    });
+}
+
+if (closeLogsBtn) {
+    closeLogsBtn.addEventListener('click', () => {
+        if (flagLogsModal) flagLogsModal.classList.add('hidden');
     });
 }
 

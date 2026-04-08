@@ -69,7 +69,7 @@ app.get('/auth/google/callback',
     const role = req.session.pendingRole || 'student';
     // Check domain restriction
     if (req.user && req.user.email && !req.user.email.endsWith('@rknec.edu')) {
-      req.logout(() => {});
+      req.logout(() => { });
       return res.redirect('/?error=domain');
     }
     if (role === 'admin') {
@@ -155,11 +155,11 @@ function findSessionByAdminSocket(socketId) {
 // Allowed window title keywords per subject
 const RULES = {
   ML: ['colab', 'google colab', 'colaboratory', 'google-colab', 'classroom', 'explorer', 'file browser', 'code', 'visual studio',
-       'python', 'jupyter', 'anaconda', 'terminal', 'cmd', 'powershell',
-       'notepad', 'sublime', 'pycharm', 'spyder', 'idle', 'antigravity'],
+    'python', 'jupyter', 'anaconda', 'terminal', 'cmd', 'powershell',
+    'notepad', 'sublime', 'pycharm', 'spyder', 'idle', 'antigravity'],
   DBMS: ['classroom', 'sql plus', 'sqlplus', 'sqldeveloper', 'oracle', 'gmail',
-         'sql developer', 'mysql', 'workbench', 'dbeaver', 'terminal', 'cmd',
-         'powershell', 'notepad', 'toad', 'navicat', 'pgadmin', 'postgres', 'antigravity']
+    'sql developer', 'mysql', 'workbench', 'dbeaver', 'terminal', 'cmd',
+    'powershell', 'notepad', 'toad', 'navicat', 'pgadmin', 'postgres', 'antigravity']
 };
 
 // Window TITLES to always skip (case-insensitive partial match)
@@ -320,7 +320,8 @@ io.on('connection', (socket) => {
         socketId: socket.id,
         studentId,
         name: name.trim(),
-        flagged: false
+        flagged: false,
+        flagLogs: []
       };
       session.students.push(student);
 
@@ -331,7 +332,7 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student });
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
-        students: session.students.map((s) => ({ socketId: s.socketId, studentId: s.studentId, name: s.name, flagged: s.flagged, lastActivity: s.lastActivity || null }))
+        students: session.students.map((s) => ({ socketId: s.socketId, studentId: s.studentId, name: s.name, flagged: s.flagged, flagLogs: s.flagLogs || [], lastActivity: s.lastActivity || null }))
       });
 
       if (callback) {
@@ -363,20 +364,20 @@ io.on('connection', (socket) => {
     let targetIndex = -1;
 
     for (let i = 0; i < (windows || []).length; i++) {
-        const title = (windows[i] || '').toLowerCase();
-        if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
-            activeWindowTitle = windows[i];
-            activeProcessName = (processes && processes[i]) || 'Unknown';
-            targetIndex = i;
-            break;
-        }
+      const title = (windows[i] || '').toLowerCase();
+      if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
+        activeWindowTitle = windows[i];
+        activeProcessName = (processes && processes[i]) || 'Unknown';
+        targetIndex = i;
+        break;
+      }
     }
 
     // Default to the first window if somehow everything is skipped
     if (targetIndex === -1 && windows && windows.length > 0) {
-        activeWindowTitle = windows[0];
-        activeProcessName = (processes && processes[0]) || 'Unknown';
-        targetIndex = 0;
+      activeWindowTitle = windows[0];
+      activeProcessName = (processes && processes[0]) || 'Unknown';
+      targetIndex = 0;
     }
 
     let isFlagged = false;
@@ -402,6 +403,17 @@ io.on('connection', (socket) => {
     }
 
     const student = session.students[studentIndex];
+    if (isFlagged) {
+      if (!student.flagLogs) student.flagLogs = [];
+      const lastLog = student.flagLogs[student.flagLogs.length - 1];
+      if (!lastLog || lastLog.windowTitle !== activeWindowTitle) {
+        student.flagLogs.push({
+          timestamp: Date.now(),
+          windowTitle: activeWindowTitle,
+          processName: activeProcessName
+        });
+      }
+    }
     student.flagged = isFlagged;
     student.lastActivity = { windowTitle: activeWindowTitle, processName: activeProcessName };
 
@@ -413,6 +425,7 @@ io.on('connection', (socket) => {
         studentId: s.studentId,
         name: s.name,
         flagged: s.flagged,
+        flagLogs: s.flagLogs || [],
         lastActivity: s.lastActivity || null
       }))
     });
@@ -477,6 +490,7 @@ io.on('connection', (socket) => {
           studentId: s.studentId,
           name: s.name,
           flagged: s.flagged,
+          flagLogs: s.flagLogs || [],
           lastActivity: s.lastActivity || null
         }))
       });
