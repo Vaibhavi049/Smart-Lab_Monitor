@@ -70,6 +70,7 @@ contextBridge.exposeInMainWorld('socketAPI', {
     ipcRenderer.send('STOP_ACTIVITY_TRACKING');
   },
   onActivityData(callback) {
+    ipcRenderer.removeAllListeners('ACTIVITY_DATA');
     ipcRenderer.on('ACTIVITY_DATA', (event, data) => callback(data));
   },
   loginOAuth() {

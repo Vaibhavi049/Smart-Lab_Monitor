@@ -266,8 +266,15 @@ function setupSocketEventHandlers() {
     }
   });
 
+  let updateCounter = 0;
   socketAPI.onActivityData((data) => {
-    if (studentSession.monitoringStatus === 'active') socketAPI.emit('ACTIVITY_UPDATE', data);
+    if (studentSession.monitoringStatus === 'active') {
+      socketAPI.emit('ACTIVITY_UPDATE', data);
+      updateCounter++;
+      if (updateCounter % 10 === 0) {
+        console.log(`[PULSE] Sent ${updateCounter} activity updates to server...`);
+      }
+    }
   });
 
   // ───── NEW MODULAR HYBRID HANDLERS ─────
@@ -381,16 +388,72 @@ if (studentBtn) {
   });
 }
 
+if (studentBackBtn) {
+  studentBackBtn.addEventListener('click', () => {
+    resetStudentState();
+    currentRole = null;
+    showCard(roleSelectionCard);
+  });
+}
+
 if (joinSessionBtn) {
   joinSessionBtn.addEventListener('click', () => {
-    const roomCode = (studentRoomCodeInput.value || '').trim().toUpperCase(); const serverIp = (studentServerIpInput.value || '').trim();
-    if (!roomCode || roomCode.length !== 6 || !serverIp) return;
+    const roomCode = (studentRoomCodeInput.value || '').trim().toUpperCase();
+    const serverIp = (studentServerIpInput.value || '').trim();
+
+    if (!roomCode || roomCode.length !== 6 || !serverIp) {
+      alert('Please enter both the Room Code (6 chars) and the Teacher\'s IP Address.');
+      return;
+    }
+
+    // UI Feedback
+    const oldText = joinSessionBtn.textContent;
+    joinSessionBtn.textContent = 'Connecting...';
+    joinSessionBtn.disabled = true;
+
+    if (studentJoinError) {
+      studentJoinError.textContent = '';
+      studentJoinError.classList.add('hidden');
+    }
+
+    console.log(`[JOIN] Attempting connection to ${serverIp}...`);
     socketAPI.connect(serverIp);
-    setTimeout(() => {
+
+    // Instead of a blind setTimeout, we'll wait for the 'connect' event or a timeout
+    const joinTimeout = setTimeout(() => {
+      console.error('[JOIN] Connection timed out after 5s');
+      joinSessionBtn.textContent = oldText;
+      joinSessionBtn.disabled = false;
+      alert('Connection timed out. Please check if the Teacher\'s IP is correct and your firewall is not blocking port 4000.');
+    }, 5000);
+
+    const onConnectHandler = () => {
+      clearTimeout(joinTimeout);
+      console.log('[JOIN] Socket connected! Emitting JOIN_SESSION...');
+      
       socketAPI.emit('JOIN_SESSION', { roomCode, name: currentUser.name }, (res) => {
-        if (res && res.success) { studentSession = { ...res.student, roomCode, monitoringStatus: res.session.monitoringStatus }; setStudentMonitoringStatus(res.session.monitoringStatus); if (res.session.monitoringStatus === 'active') socketAPI.startTracking(); if (studentSessionRoomCodeEl) studentSessionRoomCodeEl.textContent = roomCode; if (studentDisplayNameEl) studentDisplayNameEl.textContent = currentUser.name; showCard(studentSessionCard); }
+        joinSessionBtn.textContent = oldText;
+        joinSessionBtn.disabled = false;
+
+        if (res && res.success) {
+          console.log('[JOIN] Success!');
+          studentSession = { ...res.student, roomCode, monitoringStatus: res.session.monitoringStatus };
+          setStudentMonitoringStatus(res.session.monitoringStatus);
+          if (res.session.monitoringStatus === 'active') socketAPI.startTracking();
+          if (studentSessionRoomCodeEl) studentSessionRoomCodeEl.textContent = roomCode;
+          if (studentDisplayNameEl) studentDisplayNameEl.textContent = currentUser.name;
+          showCard(studentSessionCard);
+        } else {
+          console.error('[JOIN] Failed:', res?.error);
+          alert(res?.error || 'Failed to join session. Please check the room code.');
+        }
       });
-    }, 500);
+      // Clean up the listener so it doesn't fire again
+      socketAPI.off('connect', onConnectHandler);
+    };
+
+    // Listen for the connection to be established
+    socketAPI.on('connect', onConnectHandler);
   });
 }
 

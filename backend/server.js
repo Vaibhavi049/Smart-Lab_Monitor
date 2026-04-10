@@ -185,9 +185,9 @@ const SYSTEM_PROCESS_SKIP = [
   'searchapp', 'searchhost', 'startmenuexperiencehost',
   'runtimebroker', 'lockapp', 'systemsettings',
   'widgethost', 'widgets', 'gamebar', 'gamebarftserver',
-  'explorer', 'dwm', 'csrss', 'winlogon', 'ctfmon',
+  'dwm', 'ctfmon',
   'securityhealthsystray', 'securityhealthservice',
-  'taskhostw', 'sihost', 'fontdrvhost',
+  'sihost', 'fontdrvhost',
   'smartlab', 'electron', 'monitoring',
   'nvidia', 'igfx', 'realtek', 'logitech', 'antigravity'
 ];
@@ -313,37 +313,61 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const alreadyIn = session.students.some((s) => s.socketId === socket.id);
-    if (!alreadyIn) {
-      const studentId = generateStudentId();
-      const student = {
-        socketId: socket.id,
-        studentId,
-        name: name.trim(),
-        flagged: false,
-        flagLogs: []
-      };
-      session.students.push(student);
+    const studentName = name.trim();
+    // Check if student IS ALREADY in the list (re-claiming/re-joining)
+    const existingStudent = session.students.find(s => s.name === studentName);
+
+    if (existingStudent) {
+      // Re-claim the slot
+      existingStudent.socketId = socket.id;
+      existingStudent.connected = true;
+      delete existingStudent.disconnectTime;
 
       socket.join(roomCode);
+      console.log(`Student RE-JOINED: roomCode=${roomCode}, name=${studentName}, socketId=${socket.id}`);
 
-      console.log(`Student joined: roomCode=${roomCode}, name=${student.name}, socketId=${socket.id}`);
-
-      io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student });
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
-        students: session.students.map((s) => ({ socketId: s.socketId, studentId: s.studentId, name: s.name, flagged: s.flagged, flagLogs: s.flagLogs || [], lastActivity: s.lastActivity || null }))
+        students: session.students.map(s => ({ ...s }))
       });
 
       if (callback) {
         callback({
           success: true,
           session: { roomCode, monitoringStatus: session.monitoringStatus },
-          student: { studentId: student.studentId, name: student.name }
+          student: { studentId: existingStudent.studentId, name: existingStudent.name }
         });
       }
     } else {
-      if (callback) callback({ success: true, session: { roomCode, monitoringStatus: session.monitoringStatus } });
+      // NEW student join
+      const studentId = generateStudentId();
+      const newStudent = {
+        socketId: socket.id,
+        studentId,
+        name: studentName,
+        flagged: false,
+        flagLogs: [],
+        connected: true
+      };
+      
+      session.students.push(newStudent);
+      socket.join(roomCode);
+      
+      console.log(`NEW student joined: roomCode=${roomCode}, name=${studentName}, socketId=${socket.id}`);
+
+      io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student: newStudent });
+      io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
+        roomCode,
+        students: session.students.map(s => ({ ...s }))
+      });
+
+      if (callback) {
+        callback({
+          success: true,
+          session: { roomCode, monitoringStatus: session.monitoringStatus },
+          student: { studentId: newStudent.studentId, name: newStudent.name }
+        });
+      }
     }
   });
 
@@ -364,20 +388,20 @@ io.on('connection', (socket) => {
     let targetIndex = -1;
 
     for (let i = 0; i < (windows || []).length; i++) {
-      const title = (windows[i] || '').toLowerCase();
-      if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
-        activeWindowTitle = windows[i];
-        activeProcessName = (processes && processes[i]) || 'Unknown';
-        targetIndex = i;
-        break;
-      }
+        const title = (windows[i] || '').toLowerCase();
+        if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
+            activeWindowTitle = windows[i];
+            activeProcessName = (processes && processes[i]) || 'Unknown';
+            targetIndex = i;
+            break;
+        }
     }
 
     // Default to the first window if somehow everything is skipped
     if (targetIndex === -1 && windows && windows.length > 0) {
-      activeWindowTitle = windows[0];
-      activeProcessName = (processes && processes[0]) || 'Unknown';
-      targetIndex = 0;
+        activeWindowTitle = windows[0];
+        activeProcessName = (processes && processes[0]) || 'Unknown';
+        targetIndex = 0;
     }
 
     let isFlagged = false;
@@ -387,7 +411,6 @@ io.on('connection', (socket) => {
       const windowTitle = activeWindowTitle.toLowerCase();
       const processName = activeProcessName.toLowerCase();
 
-      // Check if this window title or its process is in the allowed rules
       let isAllowed = false;
       for (const keyword of allowedKeywords) {
         if (windowTitle.includes(keyword) || processName.includes(keyword)) {
@@ -479,24 +502,47 @@ io.on('connection', (socket) => {
     const studentSessionInfo = findSessionByStudentSocket(socket.id);
     if (studentSessionInfo) {
       const { session, roomCode, studentIndex } = studentSessionInfo;
-      const [removed] = session.students.splice(studentIndex, 1);
+      const student = session.students[studentIndex];
+      
+      // Mark as disconnected but don't remove yet (Grace Period)
+      student.connected = false;
+      student.disconnectTime = Date.now();
 
-      console.log(`Student disconnected: roomCode=${roomCode}, studentId=${removed.studentId}, name=${removed.name}`);
+      console.log(`Student disconnected (Grace Period): roomCode=${roomCode}, name=${student.name}`);
 
       io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
         roomCode,
-        students: session.students.map((s) => ({
-          socketId: s.socketId,
-          studentId: s.studentId,
-          name: s.name,
-          flagged: s.flagged,
-          flagLogs: s.flagLogs || [],
-          lastActivity: s.lastActivity || null
-        }))
+        students: session.students.map(s => ({ ...s }))
       });
     }
   });
 });
+
+// ─── Cleanup Interval (Grace Period) ──────────────────────────────────
+setInterval(() => {
+  const now = Date.now();
+  const GRACE_PERIOD_MS = 120000; // 2 minutes
+
+  for (const roomCode in sessions) {
+    const session = sessions[roomCode];
+    const initialCount = session.students.length;
+    
+    // Filter out students who have been disconnected for too long
+    session.students = session.students.filter(s => {
+      if (s.connected) return true;
+      const disconnectedFor = now - (s.disconnectTime || 0);
+      return disconnectedFor < GRACE_PERIOD_MS;
+    });
+
+    if (session.students.length !== initialCount) {
+      console.log(`Cleaned up disconnected students in room ${roomCode}`);
+      io.to(roomCode).emit('STUDENT_LIST_UPDATED', {
+        roomCode,
+        students: session.students.map(s => ({ ...s }))
+      });
+    }
+  }
+}, 15000); // Check every 15 seconds
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {

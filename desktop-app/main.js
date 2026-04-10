@@ -5,8 +5,13 @@ const { spawn, fork, exec } = require('child_process');
 const http = require('http');
 const os = require('os');
 
+// Pre-computed encoded PowerShell command to get the ACTUAL foreground window via Win32 API
+// This replaces the old Get-Process approach which returned windows in arbitrary PID order
+const FG_PS_SCRIPT = `try{Add-Type -MemberDefinition '[DllImport("user32.dll")]public static extern IntPtr GetForegroundWindow();[DllImport("user32.dll")]public static extern uint GetWindowThreadProcessId(IntPtr hWnd,out uint processId);[DllImport("user32.dll",CharSet=CharSet.Unicode)]public static extern int GetWindowText(IntPtr hWnd,System.Text.StringBuilder text,int count);' -Name FGWin -Namespace SmartLab -EA Stop;$hwnd=[SmartLab.FGWin]::GetForegroundWindow();$title=New-Object Text.StringBuilder 512;[void][SmartLab.FGWin]::GetWindowText($hwnd,$title,512);$fpid=[uint32]0;[void][SmartLab.FGWin]::GetWindowThreadProcessId($hwnd,[ref]$fpid);$pname='';try{$pname=(Get-Process -Id $fpid -EA Stop).Name}catch{};ConvertTo-Json @(@{windowTitle=$title.ToString();processName=$pname}) -Compress}catch{Get-Process|Where-Object{$_.MainWindowTitle -ne ''}|ForEach-Object{@{windowTitle=$_.MainWindowTitle;processName=$_.Name}}|ConvertTo-Json -Compress}`;
+const FG_ENCODED_CMD = Buffer.from(FG_PS_SCRIPT, 'utf16le').toString('base64');
+
 // Load .env logic
-const envPath = app.isPackaged 
+const envPath = app.isPackaged
   ? path.join(process.resourcesPath, "backend", ".env")
   : path.join(__dirname, "..", "backend", ".env");
 dotenv.config({ path: envPath });
@@ -65,7 +70,7 @@ function createWindow() {
 // ───── COMPACT READY HANDLER ─────
 app.on('ready', () => {
   nativeTheme.themeSource = 'dark';
-  
+
   // Set permission handlers BEFORE creating window
   session.defaultSession.setPermissionCheckHandler((webContents, permission) => {
     if (permission === 'media' || permission === 'display-capture') return true;
@@ -101,13 +106,22 @@ app.on('activate', () => {
 
 // ───── IPC HANDLERS ─────
 
+// (activityInterval is already declared at the top)
+
 ipcMain.on('START_ACTIVITY_TRACKING', (event) => {
   if (activityInterval) return;
-  console.log('Starting PowerShell activity monitor...');
+  console.log('Starting foreground window activity monitor (Win32 API)...');
+  let execBusy = false;
   activityInterval = setInterval(() => {
-    const psScript = `Get-Process | Where-Object {$_.MainWindowTitle -ne ''} | ForEach-Object { @{windowTitle=$_.MainWindowTitle; processName=$_.Name} } | ConvertTo-Json -Compress`;
-    exec(`powershell.exe -NoProfile -WindowStyle Hidden -Command "${psScript}"`, { timeout: 5000 }, (error, stdout, stderr) => {
-      if (error || !stdout || stdout.trim() === '') return;
+    if (execBusy) return; // Prevent overlapping PowerShell calls
+    execBusy = true;
+    exec(`powershell.exe -NoProfile -WindowStyle Hidden -EncodedCommand ${FG_ENCODED_CMD}`, { timeout: 5000 }, (error, stdout, stderr) => {
+      execBusy = false;
+      if (error) {
+        console.log('[ACTIVITY] PowerShell error:', error.message);
+        return;
+      }
+      if (!stdout || stdout.trim() === '') return;
       try {
         const parsed = JSON.parse(stdout);
         const results = Array.isArray(parsed) ? parsed : [parsed];
@@ -116,7 +130,9 @@ ipcMain.on('START_ACTIVITY_TRACKING', (event) => {
           processes: results.map(r => (r.processName || '').toLowerCase())
         };
         event.reply('ACTIVITY_DATA', data);
-      } catch (e) {}
+      } catch (e) {
+        console.log('[ACTIVITY] JSON parse error:', e.message);
+      }
     });
   }, 2000);
 });
@@ -135,7 +151,7 @@ ipcMain.handle('START_OAUTH_LOGIN', async () => {
     const oauthServer = http.createServer();
     const port = 4000;
     oauthServer.on('error', (err) => { safeResolve({ success: false, error: 'Port 4000 is occupied.' }); });
-    const authTimeout = setTimeout(() => { try { oauthServer.close(); } catch (e) {} safeResolve({ success: false, error: 'Auth Timed out.' }); }, 120000);
+    const authTimeout = setTimeout(() => { try { oauthServer.close(); } catch (e) { } safeResolve({ success: false, error: 'Auth Timed out.' }); }, 120000);
     oauthServer.listen(port, 'localhost', () => {
       const redirectUri = `http://localhost:${port}/auth/google/callback`;
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email%20profile`;
