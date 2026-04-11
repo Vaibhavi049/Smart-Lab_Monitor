@@ -165,7 +165,7 @@ const RULES = {
 // Window TITLES to always skip (case-insensitive partial match)
 const SYSTEM_TITLE_SKIP = [
   'task manager', 'program manager', 'settings', 'smartlab',
-  'smartlab assist', 'smartlab_assist', 'monitoring app',
+  'smartlab assist', 'smartlab_assist', 'monitoring app', 'smart-lab', 'assist', 'monitor',
   'desktop', 'shell_traywnd', 'notification', 'action center',
   'cortana', 'search', 'start menu', 'lock screen',
   'input', 'keyboard', 'runtime broker', 'application frame',
@@ -188,7 +188,7 @@ const SYSTEM_PROCESS_SKIP = [
   'dwm', 'ctfmon',
   'securityhealthsystray', 'securityhealthservice',
   'sihost', 'fontdrvhost',
-  'smartlab', 'electron', 'monitoring',
+  'smartlab', 'smartlab_assist', 'electron', 'monitoring', 'smartlab-assist',
   'nvidia', 'igfx', 'realtek', 'logitech', 'antigravity'
 ];
 
@@ -349,10 +349,10 @@ io.on('connection', (socket) => {
         flagLogs: [],
         connected: true
       };
-      
+
       session.students.push(newStudent);
       socket.join(roomCode);
-      
+
       console.log(`NEW student joined: roomCode=${roomCode}, name=${studentName}, socketId=${socket.id}`);
 
       io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student: newStudent });
@@ -386,28 +386,39 @@ io.on('connection', (socket) => {
     let activeWindowTitle = 'N/A';
     let activeProcessName = 'Unknown';
     let targetIndex = -1;
+    let allWindowsAreSystem = true; // Track if every window is a system/self window
 
     for (let i = 0; i < (windows || []).length; i++) {
-        const title = (windows[i] || '').toLowerCase();
-        if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
-            activeWindowTitle = windows[i];
-            activeProcessName = (processes && processes[i]) || 'Unknown';
-            targetIndex = i;
-            break;
-        }
+      const title = (windows[i] || '').toLowerCase();
+      const proc = (processes && processes[i] || '').toLowerCase();
+
+      // Check if this window is a system/self window (title OR process matches skip lists)
+      const titleIsSystem = SYSTEM_TITLE_SKIP.some(skip => title.includes(skip));
+      const procIsSystem = SYSTEM_PROCESS_SKIP.some(skip => proc.includes(skip));
+
+      if (!titleIsSystem && !procIsSystem) {
+        // Found a real, non-system window — this is the one to evaluate
+        activeWindowTitle = windows[i];
+        activeProcessName = (processes && processes[i]) || 'Unknown';
+        targetIndex = i;
+        allWindowsAreSystem = false;
+        break;
+      }
     }
 
-    // Default to the first window if somehow everything is skipped
-    if (targetIndex === -1 && windows && windows.length > 0) {
-        activeWindowTitle = windows[0];
-        activeProcessName = (processes && processes[0]) || 'Unknown';
-        targetIndex = 0;
+    // If ALL windows are system/self windows (e.g. SmartLab app itself, desktop, etc.)
+    // then this is a SAFE state — the student is looking at the monitoring app or the OS.
+    // Do NOT flag this and just record the activity as-is.
+    if (allWindowsAreSystem) {
+      activeWindowTitle = (windows && windows.length > 0) ? windows[0] : 'SmartLab Monitor';
+      activeProcessName = (processes && processes.length > 0) ? processes[0] : 'smartlab';
+      targetIndex = 0;
     }
 
     let isFlagged = false;
 
-    // EVALUATE ONLY THE ACTIVE WINDOW'S AUTHORIZATION
-    if (targetIndex !== -1) {
+    // ONLY evaluate against subject rules if the active window is a REAL app (not system/self)
+    if (!allWindowsAreSystem && targetIndex !== -1) {
       const windowTitle = activeWindowTitle.toLowerCase();
       const processName = activeProcessName.toLowerCase();
 
@@ -503,7 +514,7 @@ io.on('connection', (socket) => {
     if (studentSessionInfo) {
       const { session, roomCode, studentIndex } = studentSessionInfo;
       const student = session.students[studentIndex];
-      
+
       // Mark as disconnected but don't remove yet (Grace Period)
       student.connected = false;
       student.disconnectTime = Date.now();
@@ -526,7 +537,7 @@ setInterval(() => {
   for (const roomCode in sessions) {
     const session = sessions[roomCode];
     const initialCount = session.students.length;
-    
+
     // Filter out students who have been disconnected for too long
     session.students = session.students.filter(s => {
       if (s.connected) return true;

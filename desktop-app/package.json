@@ -46,11 +46,15 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -64,12 +68,18 @@
     }
   },
   "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
     "dotenv": "^17.4.0",
     "electron-squirrel-startup": "^1.0.0",
-    "socket.io-client": "^4.8.1"
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "socket.io-client": "^4.8.1",
+    "three": "^0.183.2"
   },
   "devDependencies": {
     "electron": "^31.0.0",
-    "electron-builder": "^25.1.8"
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.0"
   }
 }

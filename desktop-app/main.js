@@ -149,10 +149,13 @@ ipcMain.handle('START_OAUTH_LOGIN', async () => {
     let resolved = false;
     const safeResolve = (result) => { if (!resolved) { resolved = true; resolve(result); } };
     const oauthServer = http.createServer();
-    const port = 4000;
-    oauthServer.on('error', (err) => { safeResolve({ success: false, error: 'Port 4000 is occupied.' }); });
+    // Use port 0 to let the OS assign a free port. This avoids conflicts
+    // when the backend proctoring server is already running on port 4000.
+    // Google OAuth allows any port on localhost for native/desktop apps.
+    oauthServer.on('error', (err) => { safeResolve({ success: false, error: 'Could not start auth server: ' + err.message }); });
     const authTimeout = setTimeout(() => { try { oauthServer.close(); } catch (e) { } safeResolve({ success: false, error: 'Auth Timed out.' }); }, 120000);
-    oauthServer.listen(port, 'localhost', () => {
+    oauthServer.listen(0, 'localhost', () => {
+      const port = oauthServer.address().port;
       const redirectUri = `http://localhost:${port}/auth/google/callback`;
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=email%20profile`;
       shell.openExternal(authUrl);

@@ -1,0 +1,212 @@
+@import "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700;800&family=JetBrains+Mono:wght@400;600&display=swap";
+
+/* renderer/react-splash/SplashPage.css */
+.new-splash-container {
+  width: 100vw;
+  height: 100vh;
+  background: #FFFFFF;
+  position: relative;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  z-index: 9999;
+}
+.layer-bottom {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.layer-middle {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+  z-index: 2;
+}
+.layer-top {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  pointer-events: none;
+}
+.scanline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(21, 101, 192, 0.08);
+  animation: sweep 4.5s ease-in-out infinite;
+  animation-delay: 0.5s;
+  top: -2px;
+}
+@keyframes sweep {
+  0% {
+    top: -2px;
+  }
+  100% {
+    top: 100%;
+  }
+}
+.corner {
+  width: 18px;
+  height: 18px;
+  position: absolute;
+  z-index: 10;
+  opacity: 0;
+  animation: fadeIn 500ms ease forwards;
+  animation-delay: 300ms;
+}
+.corner.top-left {
+  top: 14px;
+  left: 14px;
+  border-top: 1.5px solid #1565C0;
+  border-left: 1.5px solid #1565C0;
+}
+.corner.top-right {
+  top: 14px;
+  right: 14px;
+  border-top: 1.5px solid #1565C0;
+  border-right: 1.5px solid #1565C0;
+}
+.corner.bottom-left {
+  bottom: 14px;
+  left: 14px;
+  border-bottom: 1.5px solid #E65100;
+  border-left: 1.5px solid #E65100;
+}
+.corner.bottom-right {
+  bottom: 14px;
+  right: 14px;
+  border-bottom: 1.5px solid #E65100;
+  border-right: 1.5px solid #E65100;
+}
+.version-tag-new {
+  position: absolute;
+  top: 16px;
+  right: 48px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  color: rgba(26, 26, 46, 0.25);
+  letter-spacing: 0.1em;
+  opacity: 0;
+  animation: fadeIn 500ms ease forwards;
+  animation-delay: 500ms;
+}
+.secure-badge {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1565C0;
+  letter-spacing: 0.18em;
+  background: rgba(21, 101, 192, 0.06);
+  border: 1px solid rgba(21, 101, 192, 0.30);
+  border-radius: 3px;
+  padding: 4px 14px;
+  margin-bottom: 22px;
+  opacity: 0;
+  transform: translateY(10px);
+  animation: slideUpBadge 500ms ease forwards, badgePulse 2.5s ease-in-out infinite alternate;
+  animation-delay: 200ms, 800ms;
+}
+@keyframes slideUpBadge {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes badgePulse {
+  from {
+    box-shadow: 0 0 0 rgba(21, 101, 192, 0);
+    border-color: rgba(21, 101, 192, 0.30);
+  }
+  to {
+    box-shadow: 0 0 16px rgba(21, 101, 192, 0.25);
+    border-color: rgba(21, 101, 192, 0.50);
+  }
+}
+.title-3d-wrapper {
+  perspective: 600px;
+  display: flex;
+  flex-direction: column;
+}
+.title-row {
+  display: flex;
+  flex-direction: row;
+}
+.title-char {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 800;
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  letter-spacing: -0.01em;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(40px) rotateX(-60deg);
+  animation: flipUp 500ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.text-navy {
+  color: #1A1A2E;
+}
+.text-royal {
+  color: #1565C0;
+}
+.text-burnt {
+  color: #E65100;
+}
+@keyframes flipUp {
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0deg);
+  }
+}
+.orange-underline {
+  height: 3px;
+  width: 0;
+  background: #E65100;
+  border-radius: 2px;
+  margin: 10px auto 0;
+  animation: expandLine 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: 1700ms;
+}
+@keyframes expandLine {
+  to {
+    width: 300px;
+  }
+}
+.tagline-new {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+  color: rgba(26, 26, 46, 0.38);
+  letter-spacing: 0.12em;
+  margin-top: 16px;
+  opacity: 0;
+  animation: fadeIn 500ms ease forwards;
+  animation-delay: 1900ms;
+}
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+.progress-bar-new {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background:
+    linear-gradient(
+      90deg,
+      #1565C0,
+      #E65100);
+  width: 0%;
+  animation: loadProgress 6000ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+  animation-delay: 200ms;
+  z-index: 20;
+}
+@keyframes loadProgress {
+  to {
+    width: 100%;
+  }
+}

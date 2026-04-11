@@ -51,6 +51,11 @@ const closeLogsBtn = $('close-logs-btn');
 const flagLogsContainer = $('flag-logs-container');
 const flagLogsStudentName = $('flag-logs-student-name');
 
+const globalActivityLog = $('global-activity-log');
+const flagSummaryPanel = $('flag-summary-panel');
+const flagSummaryText = $('flag-summary-text');
+const adminActiveFlagsEl = $('admin-active-flags');
+
 // --- Global Config & State ---
 let currentRole = null;
 let adminRoomCode = null;
@@ -108,6 +113,32 @@ function updateConnectionStatus(connected) {
   if (connectionText) connectionText.textContent = connected ? 'Connected' : 'Disconnected';
 }
 
+function addGlobalLog(message, type = 'info') {
+  if (!globalActivityLog) return;
+  const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${type}`;
+  entry.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-msg">${message}</span>
+  `;
+  globalActivityLog.prepend(entry);
+}
+
+function updateFlagSummary() {
+  if (!flagSummaryPanel || !flagSummaryText || !adminActiveFlagsEl) return;
+  const flagged = adminStudents.filter(s => s.flagged);
+  adminActiveFlagsEl.textContent = flagged.length.toString();
+  
+  if (flagged.length > 0) {
+    flagSummaryPanel.classList.remove('hidden');
+    const names = flagged.map(s => s.name).join(', ');
+    flagSummaryText.innerHTML = `${flagged.length} student(s) have triggered alerts: <strong>${names}</strong>`;
+  } else {
+    flagSummaryPanel.classList.add('hidden');
+  }
+}
+
 function setAdminMonitoringStatus(status) {
   adminMonitoringStatus = status;
   if (adminMonitoringStatusEl) {
@@ -134,6 +165,8 @@ function renderAdminStudents() {
   if (!studentsGrid) return;
   studentsGrid.innerHTML = '';
   if (adminStudentCountEl) adminStudentCountEl.textContent = adminStudents.length.toString();
+  updateFlagSummary();
+
   if (adminStudents.length === 0) {
     if (studentsSubtitle) studentsSubtitle.textContent = 'Waiting for students to join...';
     return;
@@ -143,53 +176,77 @@ function renderAdminStudents() {
   adminStudents.forEach((student) => {
     const card = document.createElement('div');
     card.className = 'student-card';
-    const orb = document.createElement('div');
-    orb.className = 'student-card-orb';
-    const header = document.createElement('div');
-    header.className = 'student-card-header';
+    if (student.flagged && adminMonitoringStatus === 'active') card.classList.add('violating-status');
+
+    // Top: Avatar + Name + Badge
+    const top = document.createElement('div');
+    top.className = 'student-top';
+    
+    const initials = student.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = initials;
+    
+    const meta = document.createElement('div');
+    meta.className = 'student-meta';
     const nameEl = document.createElement('div');
-    nameEl.className = 'student-card-name';
+    nameEl.className = 'student-name';
     nameEl.textContent = student.name;
     const idEl = document.createElement('div');
-    idEl.className = 'student-card-id';
-    idEl.textContent = `ID: ${student.studentId}`;
-    header.appendChild(nameEl);
-    header.appendChild(idEl);
-    card.appendChild(header);
+    idEl.className = 'student-id';
+    idEl.textContent = student.studentId;
+    meta.appendChild(nameEl);
+    meta.appendChild(idEl);
+
+    const badge = document.createElement('span');
+    badge.className = 'badge ' + (student.flagged ? 'badge-danger' : 'badge-success');
+    badge.textContent = student.flagged ? 'Flagged' : 'Active';
+
+    top.appendChild(avatar);
+    top.appendChild(meta);
+    top.appendChild(badge);
+    card.appendChild(top);
     
     if (student.lastActivity && student.lastActivity.windowTitle) {
       const activityDiv = document.createElement('div');
-      activityDiv.className = 'student-activity-detail';
-      activityDiv.style.marginTop = '12px';
-      activityDiv.style.fontSize = '0.85rem';
+      activityDiv.style.marginTop = '8px';
+      activityDiv.style.fontSize = '0.75rem';
+      activityDiv.style.padding = '8px';
+      activityDiv.style.background = '#f8fafc';
+      activityDiv.style.borderRadius = '6px';
+      
       const titleSpan = document.createElement('div');
-      titleSpan.textContent = `Window: ${student.lastActivity.windowTitle}`;
+      titleSpan.textContent = student.lastActivity.windowTitle;
+      titleSpan.style.fontWeight = '600';
       titleSpan.style.whiteSpace = 'nowrap';
       titleSpan.style.overflow = 'hidden';
       titleSpan.style.textOverflow = 'ellipsis';
       const procSpan = document.createElement('div');
-      procSpan.textContent = `Process: ${student.lastActivity.processName || 'Unknown'}`;
-      procSpan.style.opacity = '0.7';
+      procSpan.textContent = student.lastActivity.processName || 'Unknown Process';
+      procSpan.style.color = 'var(--text-muted)';
       activityDiv.appendChild(titleSpan);
       activityDiv.appendChild(procSpan);
       card.appendChild(activityDiv);
     }
+
     const btnContainer = document.createElement('div');
-    btnContainer.style.display = 'flex';
+    btnContainer.style.display = 'grid';
+    btnContainer.style.gridTemplateColumns = '1fr 1fr';
     btnContainer.style.gap = '8px';
-    btnContainer.style.marginTop = '12px';
 
     const streamBtn = document.createElement('button');
-    streamBtn.className = 'primary-btn small';
-    streamBtn.textContent = 'View Screen';
+    streamBtn.className = 'primary-btn';
+    streamBtn.style.padding = '6px';
+    streamBtn.textContent = 'View';
     streamBtn.onclick = () => {
        if (webrtcModal) webrtcModal.classList.remove('hidden');
        streamer.startView(student.socketId, remoteVideo, remoteSnapshot);
     };
     
     const logsBtn = document.createElement('button');
-    logsBtn.className = 'secondary-btn small';
-    logsBtn.textContent = 'View Logs';
+    logsBtn.className = 'secondary-btn';
+    logsBtn.style.padding = '6px';
+    logsBtn.textContent = 'Logs';
     logsBtn.onclick = () => {
        if (flagLogsModal) {
           if (flagLogsStudentName) flagLogsStudentName.textContent = student.name;
@@ -197,17 +254,17 @@ function renderAdminStudents() {
              flagLogsContainer.innerHTML = '';
              const logs = student.flagLogs || [];
              if (logs.length === 0) {
-                flagLogsContainer.innerHTML = '<p style="color: #a1a1aa; font-size: 0.9rem;">No unauthorized activity recorded.</p>';
+                flagLogsContainer.innerHTML = '<p style="color: #a1a1aa; font-size: 0.8rem; text-align: center; padding: 20px;">No incidents recorded.</p>';
              } else {
                 logs.forEach(log => {
                    const timeString = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                    const logEl = document.createElement('div');
                    logEl.style.padding = '8px 12px';
-                   logEl.style.background = 'rgba(239, 68, 68, 0.1)';
+                   logEl.style.background = '#fff1f2';
                    logEl.style.borderLeft = '3px solid #ef4444';
                    logEl.style.borderRadius = '4px';
-                   logEl.style.fontSize = '0.85rem';
-                   logEl.textContent = `${timeString} - Unauthorized Window: ${log.windowTitle}`;
+                   logEl.style.fontSize = '0.75rem';
+                   logEl.textContent = `${timeString} - ${log.windowTitle}`;
                    flagLogsContainer.appendChild(logEl);
                 });
              }
@@ -219,8 +276,6 @@ function renderAdminStudents() {
     btnContainer.appendChild(streamBtn);
     btnContainer.appendChild(logsBtn);
     card.appendChild(btnContainer);
-    if (student.flagged && adminMonitoringStatus === 'active') card.classList.add('violating-status');
-    card.appendChild(orb);
     studentsGrid.appendChild(card);
   });
 }
@@ -244,8 +299,18 @@ function setupSocketEventHandlers() {
 
   socketAPI.on('STUDENT_LIST_UPDATED', (payload) => {
     if (currentRole !== 'admin') return;
-    const { roomCode, students } = payload || {};
-    if (roomCode === adminRoomCode) { adminStudents = students || []; renderAdminStudents(); }
+    const { roomCode, students, message } = payload || {};
+    if (roomCode === adminRoomCode) { 
+      if (message) addGlobalLog(message);
+      adminStudents = students || []; 
+      renderAdminStudents(); 
+    }
+  });
+
+  socketAPI.on('STUDENT_FLAGGED', (payload) => {
+    if (currentRole !== 'admin') return;
+    const { studentId, message } = payload;
+    addGlobalLog(`FLAG: ${message}`, 'flagged');
   });
 
   socketAPI.on('MONITORING_STARTED', (payload) => {
@@ -329,6 +394,8 @@ function resetStudentState() {
 // --- Admin Listeners ---
 if (adminBtn) {
   adminBtn.addEventListener('click', async () => {
+    const card = adminBtn.closest('.role-card');
+    if (card) { card.classList.add('clicked'); setTimeout(() => card.classList.remove('clicked'), 400); }
     currentRole = 'admin'; const oldText = adminBtn.textContent; adminBtn.textContent = 'Authenticating...';
     try {
       const authRes = await socketAPI.loginOAuth();
@@ -379,6 +446,8 @@ if (endSessionBtn) {
 // --- Student Listeners ---
 if (studentBtn) {
   studentBtn.addEventListener('click', async () => {
+    const card = studentBtn.closest('.role-card');
+    if (card) { card.classList.add('clicked'); setTimeout(() => card.classList.remove('clicked'), 400); }
     currentRole = 'student'; const oldText = studentBtn.textContent; studentBtn.textContent = 'Authenticating...';
     try {
       const authRes = await socketAPI.loginOAuth();
@@ -471,9 +540,60 @@ if (closeLogsBtn) {
     });
 }
 
+// --- Theme Toggle ---
+function initThemeToggle() {
+  const toggle = $('theme-toggle');
+  const sunIcon = $('theme-icon-sun');
+  const moonIcon = $('theme-icon-moon');
+  if (!toggle) return;
+
+  // Restore saved preference
+  const saved = localStorage.getItem('smartlab-theme');
+  if (saved === 'dark') applyDark();
+
+  toggle.addEventListener('click', () => {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (isDark) {
+      applyLight();
+      localStorage.setItem('smartlab-theme', 'light');
+    } else {
+      applyDark();
+      localStorage.setItem('smartlab-theme', 'dark');
+    }
+  });
+
+  function applyDark() {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    if (sunIcon) sunIcon.classList.add('hidden');
+    if (moonIcon) moonIcon.classList.remove('hidden');
+    if (studentJoinCard) studentJoinCard.style.background = 'var(--bg-card)';
+  }
+
+  function applyLight() {
+    document.documentElement.removeAttribute('data-theme');
+    if (sunIcon) sunIcon.classList.remove('hidden');
+    if (moonIcon) moonIcon.classList.add('hidden');
+    if (studentJoinCard) studentJoinCard.style.background = '#fff';
+  }
+}
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+  // Live Clock for Login Page
+  setInterval(() => {
+    const clockEl = document.getElementById('login-clock');
+    if (clockEl) {
+      clockEl.textContent = new Date().toLocaleTimeString([], { hour12: false });
+    }
+  }, 1000);
+
+  // The React splash screen will call this when it completely finishes
+  window.onSplashComplete = () => {
+    console.log('[Splash] Splash UI complete, main app active.');
+  };
+
   updateConnectionStatus(socketAPI.isConnected());
   setupSocketEventHandlers();
   showCard(roleSelectionCard);
+  initThemeToggle();
 });

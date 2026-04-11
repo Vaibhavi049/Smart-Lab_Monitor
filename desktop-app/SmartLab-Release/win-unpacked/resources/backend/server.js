@@ -165,7 +165,7 @@ const RULES = {
 // Window TITLES to always skip (case-insensitive partial match)
 const SYSTEM_TITLE_SKIP = [
   'task manager', 'program manager', 'settings', 'smartlab',
-  'smartlab assist', 'smartlab_assist', 'monitoring app',
+  'smartlab assist', 'smartlab_assist', 'monitoring app', 'smart-lab', 'assist', 'monitor',
   'desktop', 'shell_traywnd', 'notification', 'action center',
   'cortana', 'search', 'start menu', 'lock screen',
   'input', 'keyboard', 'runtime broker', 'application frame',
@@ -188,7 +188,7 @@ const SYSTEM_PROCESS_SKIP = [
   'dwm', 'ctfmon',
   'securityhealthsystray', 'securityhealthservice',
   'sihost', 'fontdrvhost',
-  'smartlab', 'electron', 'monitoring',
+  'smartlab', 'smartlab_assist', 'electron', 'monitoring', 'smartlab-assist',
   'nvidia', 'igfx', 'realtek', 'logitech', 'antigravity'
 ];
 
@@ -349,10 +349,10 @@ io.on('connection', (socket) => {
         flagLogs: [],
         connected: true
       };
-      
+
       session.students.push(newStudent);
       socket.join(roomCode);
-      
+
       console.log(`NEW student joined: roomCode=${roomCode}, name=${studentName}, socketId=${socket.id}`);
 
       io.to(roomCode).emit('STUDENT_JOINED', { roomCode, student: newStudent });
@@ -388,20 +388,20 @@ io.on('connection', (socket) => {
     let targetIndex = -1;
 
     for (let i = 0; i < (windows || []).length; i++) {
-        const title = (windows[i] || '').toLowerCase();
-        if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
-            activeWindowTitle = windows[i];
-            activeProcessName = (processes && processes[i]) || 'Unknown';
-            targetIndex = i;
-            break;
-        }
+      const title = (windows[i] || '').toLowerCase();
+      if (!SYSTEM_TITLE_SKIP.some(skip => title.includes(skip))) {
+        activeWindowTitle = windows[i];
+        activeProcessName = (processes && processes[i]) || 'Unknown';
+        targetIndex = i;
+        break;
+      }
     }
 
     // Default to the first window if somehow everything is skipped
     if (targetIndex === -1 && windows && windows.length > 0) {
-        activeWindowTitle = windows[0];
-        activeProcessName = (processes && processes[0]) || 'Unknown';
-        targetIndex = 0;
+      activeWindowTitle = windows[0];
+      activeProcessName = (processes && processes[0]) || 'Unknown';
+      targetIndex = 0;
     }
 
     let isFlagged = false;
@@ -503,7 +503,7 @@ io.on('connection', (socket) => {
     if (studentSessionInfo) {
       const { session, roomCode, studentIndex } = studentSessionInfo;
       const student = session.students[studentIndex];
-      
+
       // Mark as disconnected but don't remove yet (Grace Period)
       student.connected = false;
       student.disconnectTime = Date.now();
@@ -526,7 +526,7 @@ setInterval(() => {
   for (const roomCode in sessions) {
     const session = sessions[roomCode];
     const initialCount = session.students.length;
-    
+
     // Filter out students who have been disconnected for too long
     session.students = session.students.filter(s => {
       if (s.connected) return true;

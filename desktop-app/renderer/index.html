@@ -1,177 +1,285 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <title>Monitoring App</title>
+  <title>Smart-Lab Monitoring</title>
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' ws: wss: http: https:; media-src 'self' mediastream: blob:;">
+    content="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' ws: wss: http: https:; media-src 'self' mediastream: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./react-splash.bundle.css" />
   <link rel="stylesheet" href="./style.css" />
 </head>
-<body>
-  <div class="background-gradient"></div>
 
+<body>
+
+  <!-- ───── REACT SPLASH SCREEN ───── -->
+  <div id="react-splash-root"></div>
+
+  <!-- ───── GLOBAL CONNECTION INDICATOR ───── -->
   <div class="connection-indicator">
     <span class="indicator-dot" id="connection-dot"></span>
     <span id="connection-text">Disconnected</span>
   </div>
 
+  <!-- ───── DAY/NIGHT TOGGLE ───── -->
+  <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode">
+    <svg id="theme-icon-sun" class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+    <svg id="theme-icon-moon" class="theme-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+  </button>
+
   <main class="app-container">
-    <section id="role-selection" class="card glass active">
-      <div class="card-header">
-        <h1>Realtime Monitoring</h1>
-        <p>Choose your role to join a live session.</p>
+
+    <!-- ───── ROLE SELECTION (REDESIGNED) ───── -->
+    <section id="role-selection" class="page-container hidden">
+      <div class="login-top-bar">
+        <div class="top-left">Server: 192.168.1.1 &middot; Room: CS-LAB-04 &middot; v2.4.1</div>
+        <div class="top-right">
+          <span id="login-clock">00:00:00</span>
+          <div class="status-indicator">
+            <span class="status-dot"></span> System Operational
+          </div>
+        </div>
       </div>
-      <div class="card-body role-buttons">
-        <button id="admin-btn" class="primary-btn">Login as Admin</button>
-        <button id="student-btn" class="secondary-btn">Login as Student</button>
-      </div>
-      <div class="card-footer subtle-text">
-        <span>No login, no tracking. Local network only.</span>
+      <div class="login-content">
+        <div class="login-header">
+          <h1 class="login-title">SMART LAB MONITOR</h1>
+          <p class="login-subtitle">Real-time AI-powered lab proctoring system</p>
+        </div>
+        <div class="role-cards">
+          <div class="role-card admin-card">
+            <div style="display: flex; justify-content: center; margin-bottom: -15px; margin-top: -10px;">
+              <svg width="76" height="76" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="40" cy="65" rx="18" ry="4" fill="#000000" opacity="0.08"/>
+                <path d="M40 15L62 22V42C62 55 40 65 40 65V15Z" fill="#1D4ED8"/>
+                <path d="M40 15L18 22V42C18 55 40 65 40 65V15Z" fill="#3B82F6"/>
+                <g transform="translate(0, 1)">
+                  <rect x="37" y="25" width="6" height="28" rx="1" fill="#DBEAFE"/>
+                  <rect x="26" y="36" width="28" height="6" rx="1" fill="#DBEAFE"/>
+                  <g transform="rotate(45 40 39)">
+                    <rect x="37" y="25" width="6" height="28" rx="1" fill="#DBEAFE"/>
+                    <rect x="26" y="36" width="28" height="6" rx="1" fill="#DBEAFE"/>
+                  </g>
+                  <circle cx="40" cy="39" r="10" fill="#DBEAFE"/>
+                  <circle cx="40" cy="39" r="4.5" fill="#1D4ED8"/>
+                </g>
+              </svg>
+            </div>
+            <h3 style="text-align: center;">Admin Access</h3>
+            <p style="text-align: center;">Full access to monitoring dashboard and security logs.</p>
+            <button id="admin-btn" class="role-btn admin-btn-action">
+              Login as Admin <span class="arrow">&rarr;</span>
+            </button>
+          </div>
+          <div class="role-card student-card">
+            <div style="display: flex; justify-content: center; margin-bottom: -15px; margin-top: -10px;">
+              <svg width="84" height="76" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <ellipse cx="40" cy="65" rx="22" ry="5" fill="#000000" opacity="0.08"/>
+                <path d="M25 43V57C25 60.5 40 65 40 65C40 65 55 60.5 55 57V43H25Z" fill="#1F2937"/>
+                <path d="M10 36L40 23L70 36L40 49L10 36Z" fill="#374151"/>
+                <path d="M10 36L40 23L70 36L40 39L10 36Z" fill="#4B5563"/>
+                <path d="M40 34L61 43.5" stroke="#10B981" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M61 43.5V53" stroke="#10B981" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M58.5 53H63.5L65 65H57L58.5 53Z" fill="#10B981"/>
+              </svg>
+            </div>
+            <h3 style="text-align: center;">Student Access</h3>
+            <p style="text-align: center;">Join a secure session with your room code.</p>
+            <button id="student-btn" class="role-btn student-btn-action">
+              Login as Student <span class="arrow">&rarr;</span>
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section id="admin-dashboard" class="card glass hidden">
-      <div class="card-header admin-header">
+    <!-- ───── ADMIN DASHBOARD (ENTERPRISE LAYOUT) ───── -->
+    <section id="admin-dashboard" class="card hidden">
+      <!-- Sticky Top Header -->
+      <header class="header-sticky">
+        <div class="header-brand">
+          <h1>Smart-Lab Admin Portal</h1>
+        </div>
+        <div class="header-meta">
+          <div class="meta-item">
+            <span class="label">Monitoring Status</span>
+            <span id="admin-monitoring-status" class="badge badge-warning stopped">Stopped</span>
+          </div>
+          <button id="admin-back-btn" class="secondary-btn small">Exit Session</button>
+        </div>
+      </header>
+
+      <div class="dashboard-scroll-area">
+        <!-- Dashboard Stats -->
+        <div class="stat-grid">
+          <div class="stat-tile">
+            <span class="label">Connected Students</span>
+            <span id="admin-student-count" class="value">0</span>
+          </div>
+          <div class="stat-tile">
+            <span class="label">Active Session Flags</span>
+            <span id="admin-active-flags" class="value">0</span>
+          </div>
+          <div class="stat-tile">
+            <span class="label">Server IP (Local)</span>
+            <span id="admin-server-ip" class="value">0.0.0.0</span>
+          </div>
+          <div class="stat-tile">
+            <span class="label">Room Code</span>
+            <span id="admin-room-code" class="value">—</span>
+          </div>
+        </div>
+
+        <!-- Session Controls Bar -->
+        <div class="control-bar">
+          <div class="subject-group">
+            <span class="subject-label">Active Exam Module:</span>
+            <div class="radio-group">
+              <label class="radio-item"><input type="radio" name="subject" value="ML"> Machine Learning</label>
+              <label class="radio-item"><input type="radio" name="subject" value="DBMS"> Database (DBMS)</label>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button id="start-session-btn" class="secondary-btn">Init Session</button>
+            <button id="start-monitoring-btn" class="primary-btn" disabled>Start Monitoring</button>
+            <button id="stop-monitoring-btn" class="secondary-btn" disabled>Stop</button>
+            <button id="end-session-btn" class="danger-btn" disabled>End All</button>
+          </div>
+        </div>
+
+        <!-- Flagged Students Summary Panel -->
+        <div id="flag-summary-panel" class="flag-summary hidden">
+          <svg class="flag-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+            </path>
+          </svg>
+          <p class="flag-text"><strong>Active Violations:</strong> <span id="flag-summary-text">No students are
+              currently violating proctoring rules.</span></p>
+        </div>
+
+        <!-- Main Dashboard Column Grid -->
+        <div class="dashboard-columns">
+          <!-- Left: Students Grid -->
+          <div class="students-list-container">
+            <div class="grid-header">
+              <h3>Live Proctoring Grid</h3>
+              <p id="students-subtitle" style="font-size: 12px; color: var(--text-muted);">Waiting for candidates...</p>
+            </div>
+            <div id="students-grid" class="students-grid">
+              <!-- Dynamically Populated -->
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ───── STUDENT FLOWS (MINIMALIST) ───── -->
+    <section id="student-join" class="card hidden"
+      style="align-items: center; justify-content: center; background: #fff;">
+      <div style="max-width: 400px; width: 100%; padding: 40px; display: flex; flex-direction: column; gap: 24px;">
         <div>
-          <h2>Admin Dashboard</h2>
-          <p>Monitor connected students in real time.</p>
+          <h2 style="font-size: 1.5rem; margin-bottom: 4px;">Join Session</h2>
+          <p style="font-size: 13px; color: var(--text-secondary);">Enter the credentials provided by the proctor.</p>
         </div>
-        <button id="admin-back-btn" class="ghost-btn">Back</button>
-      </div>
-
-      <div class="admin-info-row">
-        <div class="info-pill" style="border: 2px solid var(--accent-color); background-color: rgba(99, 102, 241, 0.1);">
-          <span class="label">Server IP Address (Share with Students)</span>
-          <span id="admin-server-ip" class="value large" style="color: var(--accent-color);">—</span>
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; font-weight: 600;">Room Code</label>
+            <input id="student-room-code" type="text" maxlength="6" placeholder="ABC123"
+              style="width: 100%; border: var(--border-width) solid var(--border-color); padding: 10px; border-radius: 8px; font-weight: 700; letter-spacing: 2px;">
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <label style="font-size: 12px; font-weight: 600;">Server IP</label>
+            <input id="student-server-ip" type="text" placeholder="192.168.x.x"
+              style="width: 100%; border: var(--border-width) solid var(--border-color); padding: 10px; border-radius: 8px;">
+          </div>
+          <button id="join-session-btn" class="primary-btn" style="padding: 12px;">Verify & Join</button>
+          <p id="student-join-error" class="badge badge-danger hidden" style="text-align: center; padding: 8px;"></p>
         </div>
-        <div class="info-pill">
-          <span class="label">Room Code</span>
-          <span id="admin-room-code" class="value large">—</span>
-        </div>
-        <div class="info-pill">
-          <span class="label">Monitoring</span>
-          <span id="admin-monitoring-status" class="value status-pill stopped">Stopped</span>
-        </div>
-        <div class="info-pill">
-          <span class="label">Students</span>
-          <span id="admin-student-count" class="value">0</span>
-        </div>
-      </div>
-
-      <div class="admin-controls">
-        <div class="subject-selection" id="subject-selection" style="margin-bottom: 15px; width: 100%; display: flex; gap: 20px; align-items: center; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
-          <span style="font-weight: 500; font-size: 0.9rem; color: var(--text-color);">Select Subject:</span>
-          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="radio" name="subject" value="ML"> Machine Learning (ML)
-          </label>
-          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
-            <input type="radio" name="subject" value="DBMS"> Database (DBMS)
-          </label>
-        </div>
-        <button id="start-session-btn" class="primary-btn">Start Session</button>
-        <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
-        <button id="stop-monitoring-btn" class="ghost-btn" disabled>Stop Monitoring</button>
-        <button id="end-session-btn" class="danger-btn" disabled>End Session</button>
-      </div>
-
-      <div class="students-section">
-        <div class="section-header">
-          <h3>Connected Students</h3>
-          <p id="students-subtitle">Waiting for students to join...</p>
-        </div>
-        <div id="students-grid" class="students-grid">
-        </div>
+        <button id="student-back-btn" class="ghost-btn">Cancel</button>
       </div>
     </section>
 
-    <section id="student-join" class="card glass hidden">
-      <div class="card-header">
-        <h2>Join a Session</h2>
-        <p>Enter the room code provided by your instructor.</p>
-      </div>
-      <div class="card-body">
-        <div class="field-group">
-          <label for="student-room-code">Room Code</label>
-          <input
-            id="student-room-code"
-            type="text"
-            maxlength="6"
-            placeholder="e.g. ABC123"
-            autocomplete="off"
-          />
+    <section id="student-session" class="card hidden">
+      <header class="header-sticky">
+        <div class="header-brand">
+          <h1>Session Active</h1>
+          <p id="student-session-subtitle" style="font-size: 11px; color: var(--text-muted);">Monitoring is being
+            performed via secure channel.</p>
         </div>
-        <div class="field-group">
-          <label for="student-server-ip">Teacher's Server IP Address</label>
-          <input
-            id="student-server-ip"
-            type="text"
-            placeholder="e.g. 192.168.1.50"
-            autocomplete="off"
-          />
+        <div class="header-meta">
+          <div class="meta-item">
+            <span class="label">Status</span>
+            <span id="student-monitoring-status" class="badge badge-warning stopped">Idle</span>
+          </div>
+          <div class="meta-item">
+            <span class="label">Identified As</span>
+            <span id="student-display-name" class="value">—</span>
+          </div>
+          <div class="meta-item">
+            <span class="label">Room</span>
+            <span id="student-session-room-code" class="value">—</span>
+          </div>
+          <button id="student-leave-btn" class="danger-btn">Disconnect</button>
         </div>
-        <button id="join-session-btn" class="primary-btn full-width">Join Session</button>
-        <p id="student-join-error" class="error-text hidden"></p>
-      </div>
-      <div class="card-footer">
-        <button id="student-back-btn" class="ghost-btn small">Back</button>
-      </div>
-    </section>
-
-    <section id="student-session" class="card glass hidden">
-      <div class="card-header student-header">
-        <div>
-          <h2>Session Connected</h2>
-          <p id="student-session-subtitle">You are in the live room.</p>
-        </div>
-        <button id="student-leave-btn" class="ghost-btn">Leave</button>
-      </div>
-
-      <div class="student-info-row">
-        <div class="info-pill">
-          <span class="label">Room Code</span>
-          <span id="student-session-room-code" class="value large">—</span>
-        </div>
-        <div class="info-pill">
-          <span class="label">Monitoring</span>
-          <span id="student-monitoring-status" class="value status-pill stopped">Stopped</span>
-        </div>
-        <div class="info-pill">
-          <span class="label">You</span>
-          <span id="student-display-name" class="value">—</span>
-        </div>
-      </div>
-
-      <div class="student-message" id="student-status-message">
-        Waiting for monitoring to start...
+      </header>
+      <div
+        style="flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px;">
+        <div id="student-status-message" style="font-size: 1.25rem; font-weight: 600; color: var(--text-secondary);">
+          Waiting for proctor to start monitoring...</div>
+        <p style="max-width: 400px; text-align: center; font-size: 13px; color: var(--text-muted);">Important: Your
+          foreground activity, active window title, and process names will be monitored during the active session.</p>
       </div>
     </section>
+
   </main>
 
+  <!-- ───── MODALS ───── -->
   <div id="webrtc-modal" class="webrtc-modal hidden">
-    <div class="webrtc-modal-content card glass active">
-      <div class="webrtc-header">
-        <h3>Live Monitor: <span id="monitor-mode" style="font-size: 0.75rem; background: rgba(56, 189, 248, 0.15); padding: 2px 8px; border-radius: 4px; color: var(--accent-color);">Checking...</span></h3>
-        <button id="close-stream-btn" class="danger-btn small">Close View</button>
+    <div class="webrtc-modal-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="font-size: 1.25rem; font-weight: 800;">Live Feed: <span id="monitor-mode"
+            style="font-size: 12px; border: 1px solid var(--accent-color); padding: 2px 10px; border-radius: 99px; margin-left: 10px;">Connecting...</span>
+        </h3>
+        <button id="close-stream-btn" class="danger-btn">Terminate View</button>
       </div>
-      <video id="remoteVideo" autoplay playsinline class="hidden"></video>
-      <img id="remoteSnapshot" class="hidden" style="width: 100%; border-radius: 12px; aspect-ratio: 16/9; object-fit: contain; background: #000;" />
+      <video id="remoteVideo" autoplay playsinline
+        style="width: 100%; border-radius: 12px; background: #000; aspect-ratio: 16/9; object-fit: contain;"></video>
+      <img id="remoteSnapshot" class="hidden"
+        style="width: 100%; border-radius: 12px; aspect-ratio: 16/9; object-fit: contain; background: #000;" />
     </div>
   </div>
 
   <div id="flag-logs-modal" class="webrtc-modal hidden">
-    <div class="webrtc-modal-content card glass active" style="max-width: 500px; max-height: 80vh; overflow-y: auto;">
-      <div class="webrtc-header">
-        <h3>Flag History: <span id="flag-logs-student-name" style="color: var(--accent-color);"></span></h3>
-        <button id="close-logs-btn" class="danger-btn small">Close</button>
+    <div class="webrtc-modal-content" style="max-width: 450px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="font-size: 1.1rem; font-weight: 800;">Violations: <span id="flag-logs-student-name"
+            style="color: var(--accent-color);"></span></h3>
+        <button id="close-logs-btn" class="secondary-btn small">Dismiss</button>
       </div>
-      <div id="flag-logs-container" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+      <div id="flag-logs-container"
+        style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
       </div>
     </div>
   </div>
 
+  <script src="./react-splash.bundle.js"></script>
   <script src="./modules/streamer.js"></script>
   <script src="./renderer.js"></script>
 </body>
-</html>
 
+</html>
