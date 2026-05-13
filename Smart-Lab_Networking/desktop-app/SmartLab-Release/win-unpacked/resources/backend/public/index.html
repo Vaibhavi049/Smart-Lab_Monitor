@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>SmartLab Monitoring</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./style.css" />
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="background-gradient"></div>
+
+  <div class="connection-indicator">
+    <span class="indicator-dot" id="connection-dot"></span>
+    <span id="connection-text">Disconnected</span>
+  </div>
+
+  <main class="app-container">
+    <!-- Role selection -->
+    <section id="role-selection" class="card glass active">
+      <div class="card-header">
+        <h1>SmartLab Monitoring</h1>
+        <p>Choose your role to join a live session.</p>
+      </div>
+      <div class="card-body role-buttons">
+        <button id="admin-btn" class="primary-btn">Login as Admin</button>
+        <button id="student-btn" class="secondary-btn">Login as Student</button>
+      </div>
+
+      <div style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.1);">
+        <h4 style="margin: 0 0 10px 0; font-size: 0.9rem; color: #fff;">Help & Fixing Issues</h4>
+        <div style="font-size: 0.8rem; color: #ccc; line-height: 1.5;">
+          <p><strong>App Blocked by Windows?</strong> If you see "Smart App Blocked":</p>
+          <ol style="margin: 5px 0 0 15px; padding: 0;">
+            <li>Right-click <strong>SmartLab_Assist.exe</strong></li>
+            <li>Select <strong>Properties</strong></li>
+            <li>Check the <strong>Unblock</strong> box at the bottom</li>
+            <li>Click <strong>Apply</strong> and try again.</li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="card-footer subtle-text">
+        <span>Secure Google authentication required. Local network only.</span>
+      </div>
+    </section>
+
+    <!-- Admin login -->
+    <section id="admin-login" class="card login-card hidden" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); text-align: center;">
+      <div class="card-header">
+        <h2 style="color: #333;">SmartLab Monitoring System</h2>
+        <p style="color: #666; font-size: 1.1em; margin-bottom: 20px;">Instructor Login</p>
+      </div>
+      <div class="card-body">
+        <button id="admin-login-btn" class="primary-btn full-width" style="background-color: #4285F4; border-radius: 25px; font-weight: 500; font-size: 1.05em; padding: 12px 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; display: inline-flex; align-items: center; justify-content: center; gap: 10px; color: white; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+             <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9082c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#fff" />
+             <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9082-2.2581c-.8059.54-1.8368.859-3.0482.859-2.344 0-4.3282-1.5831-5.036-3.7104H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#fff" />
+             <path d="M3.964 10.71c-.18-.54-.2822-1.1168-.2822-1.71s.1023-1.17.2823-1.71V4.9582H.9573A8.9965 8.9965 0 0 0 0 9c0 1.4523.3477 2.8268.9573 4.0418L3.964 10.71z" fill="#fff" />
+             <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.964 7.29C4.6718 5.1627 6.656 3.5795 9 3.5795z" fill="#fff" />
+             <path d="M0 0h18v18H0z" fill="none"/>
+          </svg>
+          Login with Google
+        </button>
+      </div>
+      <div class="card-footer" style="border-top: none; margin-top: 15px;">
+        <button id="admin-login-back-btn" class="ghost-btn small" style="color: #666;">Back</button>
+      </div>
+    </section>
+
+    <!-- Admin dashboard -->
+    <section id="admin-dashboard" class="card glass hidden">
+      <div class="card-header admin-header">
+        <div>
+          <h2>Admin Dashboard</h2>
+          <p id="admin-greeting" style="font-weight: bold; margin-bottom: 5px;"></p>
+          <p>Monitor connected students in real time.</p>
+        </div>
+        <button id="admin-back-btn" class="ghost-btn">Back</button>
+      </div>
+
+      <div class="admin-info-row">
+        <div class="info-pill">
+          <span class="label">Room Code</span>
+          <span id="admin-room-code" class="value large">—</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Subject</span>
+          <span id="admin-subject-display" class="value status-pill active">—</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Monitoring</span>
+          <span id="admin-monitoring-status" class="value status-pill stopped">Stopped</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Students</span>
+          <span id="admin-student-count" class="value">0</span>
+        </div>
+      </div>
+
+      <div class="admin-controls">
+        <div style="margin-bottom: 15px; width: 100%; display: flex; gap: 20px; align-items: center; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+          <span style="font-weight: 500; font-size: 0.9rem;">Select Subject:</span>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="subject" value="ML"> Machine Learning (ML)
+          </label>
+          <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+            <input type="radio" name="subject" value="DBMS"> Database (DBMS)
+          </label>
+        </div>
+        <button id="start-session-btn" class="primary-btn">Create Session</button>
+        <button id="start-monitoring-btn" class="secondary-btn" disabled>Start Monitoring</button>
+        <button id="stop-monitoring-btn" class="ghost-btn" disabled>Stop Monitoring</button>
+        <button id="end-session-btn" class="danger-btn" disabled>End Session</button>
+      </div>
+
+      <div class="students-section">
+        <div class="section-header">
+          <h3>Connected Students</h3>
+          <p id="students-subtitle">Waiting for students to join...</p>
+        </div>
+        <div id="students-grid" class="students-grid">
+          <!-- Cards injected dynamically -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Student login -->
+    <section id="student-join" class="card login-card hidden" style="background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); text-align: center;">
+      <div class="card-header">
+        <h2 style="color: #333;">SmartLab Monitoring System</h2>
+        <p style="color: #666; font-size: 1.1em; margin-bottom: 20px;">Student Login</p>
+      </div>
+      <div class="card-body">
+        <button id="student-login-btn" class="primary-btn full-width" style="background-color: #4285F4; border-radius: 25px; font-weight: 500; font-size: 1.05em; padding: 12px 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border: none; display: inline-flex; align-items: center; justify-content: center; gap: 10px; color: white; cursor: pointer;">
+          <svg width="20" height="20" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+             <path d="M17.64 9.2045c0-.6381-.0573-1.2518-.1636-1.8409H9v3.4814h4.8436c-.2086 1.125-.8427 2.0782-1.7959 2.7164v2.2581h2.9082c1.7018-1.5668 2.6836-3.874 2.6836-6.615z" fill="#fff" />
+             <path d="M9 18c2.43 0 4.4673-.806 5.9564-2.1805l-2.9082-2.2581c-.8059.54-1.8368.859-3.0482.859-2.344 0-4.3282-1.5831-5.036-3.7104H.9574v2.3318C2.4382 15.9832 5.4818 18 9 18z" fill="#fff" />
+             <path d="M3.964 10.71c-.18-.54-.2822-1.1168-.2822-1.71s.1023-1.17.2823-1.71V4.9582H.9573A8.9965 8.9965 0 0 0 0 9c0 1.4523.3477 2.8268.9573 4.0418L3.964 10.71z" fill="#fff" />
+             <path d="M9 3.5795c1.3214 0 2.5077.4541 3.4405 1.346l2.5813-2.5814C13.4632.8918 11.426 0 9 0 5.4818 0 2.4382 2.0168.9573 4.9582L3.964 7.29C4.6718 5.1627 6.656 3.5795 9 3.5795z" fill="#fff" />
+             <path d="M0 0h18v18H0z" fill="none"/>
+          </svg>
+          Login with Google
+        </button>
+      </div>
+      <div class="card-footer" style="border-top: none; margin-top: 15px;">
+        <button id="student-back-btn" class="ghost-btn small" style="color: #666;">Back</button>
+      </div>
+    </section>
+
+    <!-- Student dashboard after login to enter code -->
+    <section id="student-dashboard" class="card glass hidden">
+      <div class="card-header student-header">
+        <div>
+          <h2>Join a Session</h2>
+          <p id="student-greeting" style="font-weight: bold; margin-bottom: 5px;"></p>
+          <p>Enter the room code provided by your instructor.</p>
+        </div>
+        <button id="student-dashboard-back-btn" class="ghost-btn">Back</button>
+      </div>
+      <div class="card-body">
+        <div class="field-group">
+          <label for="student-room-code">Room Code</label>
+          <input
+            id="student-room-code"
+            type="text"
+            maxlength="6"
+            placeholder="e.g. ABC123"
+            autocomplete="off"
+            style="text-transform: uppercase;"
+          />
+        </div>
+        <button id="join-session-btn" class="primary-btn full-width">Join Session</button>
+        <p id="student-join-error" class="error-text hidden"></p>
+      </div>
+    </section>
+
+    <!-- Student in-session view -->
+    <section id="student-session" class="card glass hidden">
+      <div class="card-header student-header">
+        <div>
+          <h2>Session Connected</h2>
+          <p id="student-session-subtitle">You are in the live room.</p>
+        </div>
+        <button id="student-leave-btn" class="ghost-btn">Leave</button>
+      </div>
+
+      <div class="student-info-row">
+        <div class="info-pill">
+          <span class="label">Room Code</span>
+          <span id="student-session-room-code" class="value large">—</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">Monitoring</span>
+          <span id="student-monitoring-status" class="value status-pill stopped">Stopped</span>
+        </div>
+        <div class="info-pill">
+          <span class="label">You</span>
+          <span id="student-display-name" class="value">—</span>
+        </div>
+      </div>
+
+      <div class="student-message" id="student-status-message">
+        Waiting for monitoring to start...
+      </div>
+    </section>
+  </main>
+
+  <div id="webrtc-modal" class="webrtc-modal hidden">
+    <div class="webrtc-modal-content card glass active">
+      <div class="webrtc-header">
+        <h3>Live Screen View</h3>
+        <button id="close-stream-btn" class="danger-btn small">Close Stream</button>
+      </div>
+      <video id="remoteVideo" autoplay playsinline></video>
+    </div>
+  </div>
+
+  <div id="flags-modal" class="webrtc-modal hidden">
+    <div class="webrtc-modal-content card glass active" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
+      <div class="webrtc-header" style="justify-content: space-between; display: flex; align-items: center; margin-bottom: 20px;">
+        <h3>Student Flags</h3>
+        <button id="close-flags-btn" class="ghost-btn small">Close</button>
+      </div>
+      <div id="flags-table-container">
+        <!-- Table will be injected here -->
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

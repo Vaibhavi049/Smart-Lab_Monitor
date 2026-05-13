@@ -1,0 +1,85 @@
+{
+  "name": "smartlab-assist",
+  "version": "1.0.0",
+  "description": "SmartLab Assist - Realtime Proctoring & Monitoring System",
+  "author": "SmartLab Team",
+  "copyright": "Copyright © 2026 SmartLab Team",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.smartlab.assist",
+    "productName": "SmartLab_Assist",
+    "directories": {
+      "output": "SmartLab-Release"
+    },
+    "extraResources": [
+      {
+        "from": "activity_monitor.exe",
+        "to": "activity_monitor.exe"
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!public/**/*",
+          "!.env"
+        ]
+      },
+      {
+        "from": "../backend/.env",
+        "to": "backend/.env"
+      }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "win": {
+      "requestedExecutionLevel": "asInvoker",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": null,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "SmartLab Assist"
+    }
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "dotenv": "^17.4.0",
+    "electron-squirrel-startup": "^1.0.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "socket.io-client": "^4.8.1",
+    "three": "^0.183.2"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.0"
+  }
+}

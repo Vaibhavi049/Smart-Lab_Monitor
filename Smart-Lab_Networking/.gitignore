@@ -1,0 +1,15 @@
+node_modules/
+.env
+*.log
+
+# Build artifacts
+desktop-app/dist/
+desktop-app/build/
+*.zip
+*.blockmap
+*.exe
+!desktop-app/activity_monitor.exe
+
+# OS files
+.DS_Store
+Thumbs.db
