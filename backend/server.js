@@ -437,6 +437,7 @@ io.on('connection', (socket) => {
     }
 
     const student = session.students[studentIndex];
+    let isNewFlagEvent = false;
     if (isFlagged) {
       if (!student.flagLogs) student.flagLogs = [];
       const lastLog = student.flagLogs[student.flagLogs.length - 1];
@@ -446,10 +447,25 @@ io.on('connection', (socket) => {
           windowTitle: activeWindowTitle,
           processName: activeProcessName
         });
+        isNewFlagEvent = true;
       }
     }
     student.flagged = isFlagged;
     student.lastActivity = { windowTitle: activeWindowTitle, processName: activeProcessName };
+
+    // Notify the specific student in real-time when they get flagged
+    if (isFlagged && isNewFlagEvent) {
+      const studentSocket = io.sockets.sockets.get(student.socketId);
+      if (studentSocket) {
+        studentSocket.emit('STUDENT_FLAG_ALERT', {
+          message: `Your profile has been flagged because you opened: "${activeWindowTitle}"`,
+          windowTitle: activeWindowTitle,
+          processName: activeProcessName,
+          timestamp: Date.now(),
+          flagLogs: student.flagLogs
+        });
+      }
+    }
 
     // Always emit so teacher sees live activity updates
     io.to(roomCode).emit('STUDENT_LIST_UPDATED', {

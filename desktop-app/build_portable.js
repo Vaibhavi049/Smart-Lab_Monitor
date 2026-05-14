@@ -62,7 +62,7 @@ try {
 
     // 5. Zipping
     console.log('Creating FINAL ZIP archive...');
-    const zipPath = path.join(rootDir, 'Final_Test.zip');
+    const zipPath = path.join(rootDir, 'CheckerTest.zip');
     // Using powershell for zipping as it's built-in on Windows
     const zipCmd = `powershell.exe -Command "Compress-Archive -Path '${buildDir}' -DestinationPath '${zipPath}' -Force"`;
     execSync(zipCmd);

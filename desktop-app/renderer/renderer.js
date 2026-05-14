@@ -56,6 +56,15 @@ const flagSummaryPanel = $('flag-summary-panel');
 const flagSummaryText = $('flag-summary-text');
 const adminActiveFlagsEl = $('admin-active-flags');
 
+// Student flag notification elements
+const flagToastContainer = $('flag-toast-container');
+const studentFlagBanner = $('student-flag-banner');
+const studentFlagBannerReason = $('student-flag-banner-reason');
+const studentViolationsPanel = $('student-violations-panel');
+const studentViolationsList = $('student-violations-list');
+const studentViolationCount = $('student-violation-count');
+let studentFlagLogs = [];
+
 // --- Global Config & State ---
 let currentRole = null;
 let adminRoomCode = null;
@@ -298,12 +307,23 @@ function setupSocketEventHandlers() {
   });
 
   socketAPI.on('STUDENT_LIST_UPDATED', (payload) => {
-    if (currentRole !== 'admin') return;
     const { roomCode, students, message } = payload || {};
-    if (roomCode === adminRoomCode) { 
+    if (currentRole === 'admin' && roomCode === adminRoomCode) { 
       if (message) addGlobalLog(message);
       adminStudents = students || []; 
       renderAdminStudents(); 
+    }
+    // Student: update own flag status from broadcast
+    if (currentRole === 'student' && roomCode === studentSession.roomCode && students) {
+      const me = students.find(s => s.name === (currentUser && currentUser.name));
+      if (me) {
+        // Update the banner based on current flag status
+        if (me.flagged) {
+          if (studentFlagBanner) studentFlagBanner.classList.remove('hidden');
+        } else {
+          if (studentFlagBanner) studentFlagBanner.classList.add('hidden');
+        }
+      }
     }
   });
 
@@ -311,6 +331,28 @@ function setupSocketEventHandlers() {
     if (currentRole !== 'admin') return;
     const { studentId, message } = payload;
     addGlobalLog(`FLAG: ${message}`, 'flagged');
+  });
+
+  // ───── Student-side: Real-time flag notification ─────
+  socketAPI.on('STUDENT_FLAG_ALERT', (payload) => {
+    if (currentRole !== 'student') return;
+    const { message, windowTitle, processName, timestamp, flagLogs } = payload;
+    console.log('[FLAG_ALERT]', message);
+
+    // Update the stored logs
+    if (flagLogs) studentFlagLogs = flagLogs;
+
+    // Show the persistent banner with latest reason
+    if (studentFlagBanner) studentFlagBanner.classList.remove('hidden');
+    if (studentFlagBannerReason) {
+      studentFlagBannerReason.textContent = `You opened: "${windowTitle}"`;
+    }
+
+    // Show the violations panel and render logs
+    renderStudentViolations();
+
+    // Show a toast notification
+    showFlagToast(message, windowTitle, timestamp);
   });
 
   socketAPI.on('MONITORING_STARTED', (payload) => {
@@ -389,6 +431,72 @@ function resetStudentState() {
   if (studentServerIpInput) studentServerIpInput.value = '';
   if (studentJoinError) { studentJoinError.textContent = ''; studentJoinError.classList.add('hidden'); }
   setStudentMonitoringStatus('stopped');
+  // Reset flag state
+  studentFlagLogs = [];
+  if (studentFlagBanner) studentFlagBanner.classList.add('hidden');
+  if (studentViolationsPanel) studentViolationsPanel.classList.add('hidden');
+  if (studentViolationsList) studentViolationsList.innerHTML = '<p class="violations-empty">No violations recorded yet.</p>';
+  if (studentViolationCount) studentViolationCount.textContent = '0';
+  if (flagToastContainer) flagToastContainer.innerHTML = '';
+}
+
+// --- Student Violation Log Rendering ---
+function renderStudentViolations() {
+  if (!studentViolationsPanel || !studentViolationsList || !studentViolationCount) return;
+  studentViolationsPanel.classList.remove('hidden');
+  studentViolationCount.textContent = studentFlagLogs.length.toString();
+
+  if (studentFlagLogs.length === 0) {
+    studentViolationsList.innerHTML = '<p class="violations-empty">No violations recorded yet.</p>';
+    return;
+  }
+
+  studentViolationsList.innerHTML = '';
+  // Render newest first
+  [...studentFlagLogs].reverse().forEach((log) => {
+    const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const entry = document.createElement('div');
+    entry.className = 'violation-entry';
+    entry.innerHTML = `
+      <div class="violation-time">${time}</div>
+      <div class="violation-detail">
+        <div class="violation-title">${log.windowTitle}</div>
+        <div class="violation-process">${log.processName || 'Unknown Process'}</div>
+      </div>
+    `;
+    studentViolationsList.appendChild(entry);
+  });
+}
+
+// --- Flag Toast Notification ---
+function showFlagToast(message, windowTitle, timestamp) {
+  if (!flagToastContainer) return;
+  const toast = document.createElement('div');
+  toast.className = 'flag-toast';
+  const time = new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  toast.innerHTML = `
+    <div class="flag-toast-icon">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path>
+        <line x1="12" y1="9" x2="12" y2="13"></line>
+        <line x1="12" y1="17" x2="12.01" y2="17"></line>
+      </svg>
+    </div>
+    <div class="flag-toast-body">
+      <div class="flag-toast-title">Profile Flagged</div>
+      <div class="flag-toast-msg">Unauthorized window: "${windowTitle}"</div>
+      <div class="flag-toast-time">${time}</div>
+    </div>
+    <button class="flag-toast-close" onclick="this.parentElement.remove()">&times;</button>
+  `;
+  flagToastContainer.prepend(toast);
+  // Trigger entrance animation
+  requestAnimationFrame(() => toast.classList.add('show'));
+  // Auto-dismiss after 8 seconds
+  setTimeout(() => {
+    toast.classList.add('hiding');
+    setTimeout(() => toast.remove(), 400);
+  }, 8000);
 }
 
 // --- Admin Listeners ---

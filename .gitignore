@@ -13,3 +13,7 @@ desktop-app/build/
 # OS files
 .DS_Store
 Thumbs.db
+
+desktop-app/SmartLab-Release/
+win-unpacked/
+*.asar

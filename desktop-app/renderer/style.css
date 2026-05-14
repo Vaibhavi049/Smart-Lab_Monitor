@@ -842,3 +842,341 @@ button:disabled {
   border-color: #22c55e;
   box-shadow: 0 12px 30px rgba(34, 197, 94, 0.15);
 }
+
+/* ═══════════════════════════════════════════════════════
+   STUDENT FLAG NOTIFICATION SYSTEM
+   ═══════════════════════════════════════════════════════ */
+
+/* ───── Student Session Body Layout ───── */
+.student-session-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px 32px;
+  overflow-y: auto;
+}
+
+.student-session-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ───── Flag Alert Banner (persistent, top of student session) ───── */
+.student-flag-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  background: linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%);
+  border-bottom: 2px solid #fca5a5;
+  animation: bannerPulse 3s ease-in-out infinite;
+}
+
+@keyframes bannerPulse {
+  0%, 100% { background-color: #fef2f2; }
+  50% { background-color: #fee2e2; }
+}
+
+.flag-banner-icon {
+  width: 24px;
+  height: 24px;
+  color: #ef4444;
+  flex-shrink: 0;
+  animation: iconShake 0.6s ease;
+}
+
+@keyframes iconShake {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(-8deg); }
+  40% { transform: rotate(8deg); }
+  60% { transform: rotate(-4deg); }
+  80% { transform: rotate(4deg); }
+}
+
+.flag-banner-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.flag-banner-content strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.flag-banner-content span {
+  font-size: 12px;
+  color: #991b1b;
+}
+
+/* ───── Student Violations Panel ───── */
+.student-violations-panel {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-card);
+  border: var(--border-width) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+.violations-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: var(--border-width) solid var(--border-color);
+  background: #fafafa;
+}
+
+.violations-header svg {
+  color: var(--danger);
+  flex-shrink: 0;
+}
+
+.violations-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.violation-count-badge {
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  min-width: 22px;
+  text-align: center;
+}
+
+.violations-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.violations-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.violation-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--danger);
+  border-radius: 4px;
+  background: #fef2f2;
+  margin-bottom: 6px;
+  animation: slideInEntry 0.3s ease-out;
+}
+
+@keyframes slideInEntry {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.violation-time {
+  font-size: 11px;
+  font-weight: 600;
+  color: #9f1239;
+  white-space: nowrap;
+  min-width: 65px;
+  padding-top: 1px;
+}
+
+.violation-detail {
+  flex: 1;
+  min-width: 0;
+}
+
+.violation-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.violation-process {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ───── Flag Toast Container ───── */
+.flag-toast-container {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.flag-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #fca5a5;
+  border-left: 4px solid #ef4444;
+  border-radius: 12px;
+  padding: 14px 16px;
+  width: 360px;
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.15), 0 2px 8px rgba(0, 0, 0, 0.06);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateX(100%) scale(0.95);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.flag-toast.show {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.flag-toast.hiding {
+  opacity: 0;
+  transform: translateX(60px) scale(0.95);
+  transition: all 0.35s ease-in;
+}
+
+.flag-toast-icon {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background: #fef2f2;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  animation: iconPulse 1.5s ease-in-out 2;
+}
+
+@keyframes iconPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+.flag-toast-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.flag-toast-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #dc2626;
+  margin-bottom: 2px;
+}
+
+.flag-toast-msg {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flag-toast-time {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.flag-toast-close {
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0 4px;
+  line-height: 1;
+  transition: color 0.2s;
+  flex-shrink: 0;
+}
+
+.flag-toast-close:hover {
+  color: #ef4444;
+}
+
+/* ───── Dark Mode: Student Flag Notification System ───── */
+[data-theme="dark"] .student-flag-banner {
+  background: linear-gradient(135deg, #450a0a 0%, #7f1d1d40 100%);
+  border-bottom-color: #991b1b;
+}
+
+@keyframes bannerPulseDark {
+  0%, 100% { background-color: #450a0a; }
+  50% { background-color: #7f1d1d; }
+}
+
+[data-theme="dark"] .student-flag-banner {
+  animation-name: bannerPulseDark;
+}
+
+[data-theme="dark"] .flag-banner-content strong {
+  color: #f87171;
+}
+
+[data-theme="dark"] .flag-banner-content span {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .violations-header {
+  background: #0f172a;
+}
+
+[data-theme="dark"] .violation-entry {
+  background: #450a0a30;
+  border-left-color: #f87171;
+}
+
+[data-theme="dark"] .violation-time {
+  color: #fca5a5;
+}
+
+[data-theme="dark"] .flag-toast {
+  background: var(--bg-card);
+  border-color: #991b1b;
+  border-left-color: #f87171;
+  box-shadow: 0 8px 30px rgba(239, 68, 68, 0.2), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .flag-toast-icon {
+  background: #450a0a;
+  color: #f87171;
+}
+
+[data-theme="dark"] .flag-toast-title {
+  color: #f87171;
+}
+
+[data-theme="dark"] .flag-toast-msg {
+  color: var(--text-secondary);
+}
+
+[data-theme="dark"] .flag-toast-close:hover {
+  color: #f87171;
+}
