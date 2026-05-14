@@ -147,10 +147,11 @@
         <div class="control-bar">
           <div class="subject-group">
             <span class="subject-label">Active Exam Module:</span>
-            <div class="radio-group">
+            <div id="subject-radio-group" class="radio-group">
               <label class="radio-item"><input type="radio" name="subject" value="ML"> Machine Learning</label>
               <label class="radio-item"><input type="radio" name="subject" value="DBMS"> Database (DBMS)</label>
             </div>
+            <button id="add-subject-btn" class="ghost-btn small" style="margin-left: 10px; color: var(--accent-color);">+ Add Subject</button>
           </div>
           <div style="display: flex; gap: 10px;">
             <button id="start-session-btn" class="secondary-btn">Init Session</button>
@@ -308,6 +309,32 @@
       </div>
       <div id="flag-logs-container"
         style="display: flex; flex-direction: column; gap: 10px; max-height: 400px; overflow-y: auto;">
+      </div>
+    </div>
+  </div>
+
+  <div id="add-subject-modal" class="webrtc-modal hidden">
+    <div class="webrtc-modal-content" style="max-width: 450px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="font-size: 1.25rem; font-weight: 800;">Add New Subject</h3>
+        <button id="close-subject-modal-btn" class="ghost-btn" style="padding: 0; min-width: 24px;">&times;</button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: 600;">Subject Name</label>
+          <input id="new-subject-name" type="text" placeholder="e.g. Web Dev"
+            style="width: 100%; border: var(--border-width) solid var(--border-color); padding: 10px; border-radius: 8px;">
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: 600;">Allowed Keywords</label>
+          <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">Enter comma-separated keywords or processes that are allowed to be open.</p>
+          <textarea id="new-subject-keywords" placeholder="e.g. vscode, chrome, stackoverflow, calculator" rows="4"
+            style="width: 100%; border: var(--border-width) solid var(--border-color); padding: 10px; border-radius: 8px; font-family: inherit; resize: vertical;"></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+          <button id="cancel-subject-btn" class="secondary-btn">Cancel</button>
+          <button id="submit-subject-btn" class="primary-btn">Add Subject</button>
+        </div>
       </div>
     </div>
   </div>

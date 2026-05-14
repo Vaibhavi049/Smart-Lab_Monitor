@@ -65,6 +65,16 @@ const studentViolationsList = $('student-violations-list');
 const studentViolationCount = $('student-violation-count');
 let studentFlagLogs = [];
 
+// Admin Subject elements
+const subjectRadioGroup = $('subject-radio-group');
+const addSubjectBtn = $('add-subject-btn');
+const addSubjectModal = $('add-subject-modal');
+const closeSubjectModalBtn = $('close-subject-modal-btn');
+const cancelSubjectBtn = $('cancel-subject-btn');
+const submitSubjectBtn = $('submit-subject-btn');
+const newSubjectName = $('new-subject-name');
+const newSubjectKeywords = $('new-subject-keywords');
+
 // --- Global Config & State ---
 let currentRole = null;
 let adminRoomCode = null;
@@ -409,6 +419,48 @@ function setupSocketEventHandlers() {
   socketAPI.on('STOP_LIVE_VIEW', () => {
     if (currentRole === 'student') streamer.cleanup();
   });
+
+  // Dynamic Subjects
+  socketAPI.on('SUBJECTS_UPDATED', (payload) => {
+    if (currentRole === 'admin') {
+      renderSubjects(payload.subjects);
+    }
+  });
+}
+
+function renderSubjects(subjects) {
+  if (!subjectRadioGroup) return;
+  // Preserve currently checked value
+  const currentlyChecked = document.querySelector('input[name="subject"]:checked');
+  const selectedValue = currentlyChecked ? currentlyChecked.value : null;
+
+  subjectRadioGroup.innerHTML = '';
+  
+  subjects.forEach(subject => {
+    const label = document.createElement('label');
+    label.className = 'radio-item';
+    
+    const input = document.createElement('input');
+    input.type = 'radio';
+    input.name = 'subject';
+    input.value = subject;
+    
+    // Disable if monitoring is active or session started
+    if (adminRoomCode) input.disabled = true;
+    
+    if (selectedValue === subject) {
+      input.checked = true;
+    }
+    
+    // Reattach event listener for enabling "Init Session" button
+    input.addEventListener('change', () => {
+      if (!adminRoomCode && startSessionBtn) startSessionBtn.disabled = false;
+    });
+
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(` ${subject}`));
+    subjectRadioGroup.appendChild(label);
+  });
 }
 
 // --- Flow Resets ---
@@ -513,6 +565,14 @@ if (adminBtn) {
       if (!hostRes.success) { alert('Server failed: ' + hostRes.error); return; }
       if ($('admin-server-ip')) $('admin-server-ip').textContent = hostRes.ip;
       resetAdminState(); socketAPI.connect(hostRes.ip); showCard(adminDashboardCard);
+      
+      // Fetch initial subjects
+      setTimeout(() => {
+        socketAPI.emit('GET_SUBJECTS', {}, (res) => {
+          if (res && res.success) renderSubjects(res.subjects);
+        });
+      }, 500);
+
     } finally { adminBtn.textContent = oldText; }
   });
 }
@@ -524,9 +584,57 @@ if (adminBackBtn) {
   });
 }
 
+// Initial binding for hardcoded subjects
 document.querySelectorAll('input[name="subject"]').forEach(radio => {
   radio.addEventListener('change', () => { if (!adminRoomCode && startSessionBtn) startSessionBtn.disabled = false; });
 });
+
+// --- Dynamic Subject Modal Listeners ---
+if (addSubjectBtn) {
+  addSubjectBtn.addEventListener('click', () => {
+    if (addSubjectModal) {
+      newSubjectName.value = '';
+      newSubjectKeywords.value = '';
+      addSubjectModal.classList.remove('hidden');
+    }
+  });
+}
+
+function closeSubjectModal() {
+  if (addSubjectModal) addSubjectModal.classList.add('hidden');
+}
+
+if (closeSubjectModalBtn) closeSubjectModalBtn.addEventListener('click', closeSubjectModal);
+if (cancelSubjectBtn) cancelSubjectBtn.addEventListener('click', closeSubjectModal);
+
+if (submitSubjectBtn) {
+  submitSubjectBtn.addEventListener('click', () => {
+    const name = newSubjectName.value.trim();
+    const keywordsRaw = newSubjectKeywords.value.trim();
+    
+    if (!name) {
+      alert('Subject Name is required.');
+      return;
+    }
+    if (!keywordsRaw) {
+      alert('Allowed Keywords are required.');
+      return;
+    }
+
+    const keywords = keywordsRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
+    
+    submitSubjectBtn.disabled = true;
+    socketAPI.emit('ADD_SUBJECT', { subjectName: name, keywords }, (res) => {
+      submitSubjectBtn.disabled = false;
+      if (res && res.success) {
+        closeSubjectModal();
+        renderSubjects(res.subjects);
+      } else {
+        alert('Failed to add subject: ' + (res?.error || 'Unknown error'));
+      }
+    });
+  });
+}
 
 if (startSessionBtn) {
   startSessionBtn.addEventListener('click', () => {

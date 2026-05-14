@@ -4,7 +4,7 @@ const { execSync } = require('child_process');
 
 const rootDir = 'd:/Monitoring/monitoring-app';
 const desktopDir = path.join(rootDir, 'desktop-app');
-const buildDir = path.join(desktopDir, 'SmartLab-Release/win-unpacked');
+const buildDir = path.join(desktopDir, 'SmartLab-Release-Test/win-unpacked');
 const resourcesDir = path.join(buildDir, 'resources');
 
 

@@ -153,7 +153,7 @@ function findSessionByAdminSocket(socketId) {
 
 // ─── Smart Environment Blocking Rules ─────────────────────────────────
 // Allowed window title keywords per subject
-const RULES = {
+let RULES = {
   ML: ['colab', 'google colab', 'colaboratory', 'google-colab', 'classroom', 'explorer', 'file browser', 'code', 'visual studio',
     'python', 'jupyter', 'anaconda', 'terminal', 'cmd', 'powershell',
     'notepad', 'sublime', 'pycharm', 'spyder', 'idle', 'antigravity'],
@@ -237,6 +237,28 @@ io.on('connection', (socket) => {
       console.error('Error in CREATE_SESSION:', err);
       if (callback) callback({ success: false, error: 'Internal server error.' });
     }
+  });
+
+  socket.on('GET_SUBJECTS', (payload, callback) => {
+    if (callback) callback({ success: true, subjects: Object.keys(RULES) });
+  });
+
+  socket.on('ADD_SUBJECT', (payload, callback) => {
+    const { subjectName, keywords } = payload || {};
+    if (!subjectName || !keywords || !Array.isArray(keywords)) {
+      if (callback) callback({ success: false, error: 'Invalid payload.' });
+      return;
+    }
+    
+    // Add new subject to RULES
+    RULES[subjectName] = keywords.map(k => k.toLowerCase().trim());
+    
+    console.log(`New subject added: ${subjectName} with ${keywords.length} keywords.`);
+    
+    // Broadcast updated subjects list to everyone (primarily admins)
+    io.emit('SUBJECTS_UPDATED', { subjects: Object.keys(RULES) });
+    
+    if (callback) callback({ success: true, subjects: Object.keys(RULES) });
   });
 
   socket.on('START_MONITORING', (payload, callback) => {
