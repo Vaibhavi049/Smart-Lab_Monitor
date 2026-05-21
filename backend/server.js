@@ -8,6 +8,7 @@ const crypto = require('crypto');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const nodemailer = require('nodemailer');
 
 const app = express();
 const server = http.createServer(app);
@@ -155,7 +156,7 @@ function findSessionByAdminSocket(socketId) {
 // Allowed window title keywords per subject
 let RULES = {
   ML: ['colab', 'google colab', 'colaboratory', 'google-colab', 'classroom', 'explorer', 'file browser', 'code', 'visual studio',
-    'python', 'jupyter', 'anaconda', 'terminal', 'cmd', 'powershell',
+    'python', 'jupyter', 'anaconda', 'terminal', 'cmd', 'powershell', 'gmail.com',
     'notepad', 'sublime', 'pycharm', 'spyder', 'idle', 'antigravity'],
   DBMS: ['classroom', 'sql plus', 'sqlplus', 'sqldeveloper', 'oracle', 'gmail',
     'sql developer', 'mysql', 'workbench', 'dbeaver', 'terminal', 'cmd',
@@ -163,20 +164,24 @@ let RULES = {
 };
 
 // Window TITLES to always skip (case-insensitive partial match)
+// Kept highly specific to avoid accidentally matching browser tabs (like "Google Search" or "New Tab")
 const SYSTEM_TITLE_SKIP = [
-  'task manager', 'program manager', 'settings', 'smartlab',
-  'smartlab assist', 'smartlab_assist', 'monitoring app', 'smart-lab', 'assist', 'monitor',
-  'desktop', 'shell_traywnd', 'notification', 'action center',
-  'cortana', 'search', 'start menu', 'lock screen',
+  'task manager', 'program manager', 'smartlab',
+  'smartlab assist', 'smartlab_assist', 'monitoring app', 'smart-lab',
+  'shell_traywnd', 'notification', 'action center',
+  'cortana', 'start menu', 'lock screen',
   'input', 'keyboard', 'runtime broker', 'application frame',
   'system tray', 'systray', 'windows security',
   'microsoft store', 'your phone', 'phone link',
-  'widget', 'news and interests', 'weather', 'clock',
   'snipping tool', 'screen sketch', 'calculator',
   'default ime', 'msctfime', 'nvidia',
-  'windows default lock screen', 'ccc.exe',
-  'electron', 'devtools', 'antigravity',
-  'new tab', 'browser helper', 'extension:', 'about:'
+  'windows default lock screen', 'ccc.exe', 'gmail.com',
+  'electron', 'devtools', 'antigravity', 'new tab'
+];
+
+// Strict blocklist - These will ALWAYS trigger a flag regardless of allowed keywords
+const BANNED_KEYWORDS = [
+  'chatgpt', 'openai', 'gemini', 'claude', 'bard', 'copilot'
 ];
 
 // Process NAMES to always skip (case-insensitive partial match)
@@ -197,7 +202,7 @@ io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}`);
 
   socket.on('CREATE_SESSION', (payload, callback) => {
-    const { subject } = payload || {};
+    const { subject, adminEmail } = payload || {};
     try {
       const existing = findSessionByAdminSocket(socket.id);
       if (existing) {
@@ -212,14 +217,16 @@ io.on('connection', (socket) => {
         roomCode,
         subject: subject || 'ML',
         adminSocketId: socket.id,
+        adminEmail: adminEmail || '',
         students: [],
-        monitoringStatus: 'stopped'
+        monitoringStatus: 'stopped',
+        createdAt: new Date()
       };
 
       sessions[roomCode] = session;
       socket.join(roomCode);
 
-      console.log(`Session created: roomCode=${roomCode}, subject=${session.subject}, adminSocketId=${socket.id}`);
+      console.log(`Session created: roomCode=${roomCode}, subject=${session.subject}, admin=${adminEmail}, adminSocketId=${socket.id}`);
 
       if (callback) {
         callback({
@@ -249,15 +256,15 @@ io.on('connection', (socket) => {
       if (callback) callback({ success: false, error: 'Invalid payload.' });
       return;
     }
-    
+
     // Add new subject to RULES
     RULES[subjectName] = keywords.map(k => k.toLowerCase().trim());
-    
+
     console.log(`New subject added: ${subjectName} with ${keywords.length} keywords.`);
-    
+
     // Broadcast updated subjects list to everyone (primarily admins)
     io.emit('SUBJECTS_UPDATED', { subjects: Object.keys(RULES) });
-    
+
     if (callback) callback({ success: true, subjects: Object.keys(RULES) });
   });
 
@@ -306,6 +313,9 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Capture session data BEFORE deleting for the email report
+    const sessionSnapshot = JSON.parse(JSON.stringify(session));
+
     io.to(roomCode).emit('SESSION_ENDED', { roomCode });
 
     for (const student of session.students) {
@@ -316,6 +326,11 @@ io.on('connection', (socket) => {
 
     delete sessions[roomCode];
     console.log(`Session ended: roomCode=${roomCode}`);
+
+    // Send email report asynchronously (don't block the callback)
+    sendSessionReport(sessionSnapshot).catch(err => {
+      console.error('[EMAIL] Failed to send session report:', err.message);
+    });
 
     if (callback) callback({ success: true });
   });
@@ -445,14 +460,27 @@ io.on('connection', (socket) => {
       const processName = activeProcessName.toLowerCase();
 
       let isAllowed = false;
-      for (const keyword of allowedKeywords) {
-        if (windowTitle.includes(keyword) || processName.includes(keyword)) {
-          isAllowed = true;
+      let isBanned = false;
+
+      // 1. Check for strictly banned keywords first
+      for (const banned of BANNED_KEYWORDS) {
+        if (windowTitle.includes(banned)) {
+          isBanned = true;
           break;
         }
       }
 
-      if (!isAllowed) {
+      // 2. If not banned, check if it's explicitly allowed
+      if (!isBanned) {
+        for (const keyword of allowedKeywords) {
+          if (windowTitle.includes(keyword) || processName.includes(keyword)) {
+            isAllowed = true;
+            break;
+          }
+        }
+      }
+
+      if (!isAllowed || isBanned) {
         console.log(`[FLAG] Student ${session.students[studentIndex].name} - Unauthorized Active Window: "${activeWindowTitle}"`);
         isFlagged = true;
       }
@@ -592,6 +620,151 @@ setInterval(() => {
     }
   }
 }, 15000); // Check every 15 seconds
+
+// ─── Email Report System ──────────────────────────────────────────────
+const EMAIL_USER = (process.env.EMAIL_USER || '').trim();
+const EMAIL_APP_PASSWORD = (process.env.EMAIL_APP_PASSWORD || '').trim();
+
+let emailTransporter = null;
+if (EMAIL_USER && EMAIL_APP_PASSWORD) {
+  emailTransporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: EMAIL_USER,
+      pass: EMAIL_APP_PASSWORD
+    }
+  });
+  console.log(`[EMAIL] Transporter configured for ${EMAIL_USER}`);
+} else {
+  console.warn('[EMAIL] Email credentials not found in .env — email reports disabled.');
+}
+
+function generateCSV(sessionData) {
+  const rows = [];
+  // Header row
+  rows.push(['Student Name', 'Student ID', 'Status', 'Total Violations', 'Violation Time', 'Window Title', 'Process Name'].join(','));
+
+  for (const student of sessionData.students) {
+    const flags = student.flagLogs || [];
+    const status = flags.length > 0 ? 'Flagged' : 'Clean';
+
+    if (flags.length === 0) {
+      // Student with no violations — single row
+      rows.push([
+        `"${student.name}"`,
+        student.studentId,
+        status,
+        0,
+        'N/A',
+        'N/A',
+        'N/A'
+      ].join(','));
+    } else {
+      // One row per violation
+      flags.forEach((log, i) => {
+        const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+        rows.push([
+          i === 0 ? `"${student.name}"` : '',
+          i === 0 ? student.studentId : '',
+          i === 0 ? status : '',
+          i === 0 ? flags.length : '',
+          time,
+          `"${(log.windowTitle || '').replace(/"/g, '""')}"`,
+          `"${(log.processName || '').replace(/"/g, '""')}"`
+        ].join(','));
+      });
+    }
+  }
+
+  return rows.join('\n');
+}
+
+async function sendSessionReport(sessionData) {
+  if (!emailTransporter) {
+    console.warn('[EMAIL] No transporter configured. Skipping email report.');
+    return;
+  }
+
+  const recipientEmail = sessionData.adminEmail;
+  if (!recipientEmail) {
+    console.warn('[EMAIL] No admin email found in session. Skipping email report.');
+    return;
+  }
+
+  const endTime = new Date();
+  const startTime = sessionData.createdAt ? new Date(sessionData.createdAt) : endTime;
+  const dayName = endTime.toLocaleDateString('en-IN', { weekday: 'long' });
+  const dateStr = endTime.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+  const startTimeStr = startTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const endTimeStr = endTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const subject = sessionData.subject || 'N/A';
+  const studentCount = sessionData.students ? sessionData.students.length : 0;
+  const flaggedCount = sessionData.students ? sessionData.students.filter(s => (s.flagLogs || []).length > 0).length : 0;
+
+  const csvContent = generateCSV(sessionData);
+  const fileName = `SmartLab_Report_${subject}_${endTime.toISOString().slice(0, 10)}.csv`;
+
+  const htmlBody = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; border-radius: 12px; overflow: hidden;">
+      <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 28px 32px; color: white;">
+        <h1 style="margin: 0; font-size: 22px; font-weight: 700;">📊 SmartLab Session Report</h1>
+        <p style="margin: 6px 0 0; opacity: 0.9; font-size: 14px;">Automated report generated upon session end</p>
+      </div>
+      <div style="padding: 28px 32px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #475569; width: 160px;">📅 Date</td>
+            <td style="padding: 10px 0; color: #1e293b;">${dateStr}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #475569;">📆 Day</td>
+            <td style="padding: 10px 0; color: #1e293b;">${dayName}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #475569;">🕐 Session Time</td>
+            <td style="padding: 10px 0; color: #1e293b;">${startTimeStr} — ${endTimeStr}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #475569;">📘 Subject</td>
+            <td style="padding: 10px 0; color: #1e293b; font-weight: 600;">${subject}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #475569;">👥 Students Connected</td>
+            <td style="padding: 10px 0; color: #1e293b; font-size: 18px; font-weight: 700;">${studentCount}</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #475569;">🚩 Students Flagged</td>
+            <td style="padding: 10px 0; color: ${flaggedCount > 0 ? '#ef4444' : '#22c55e'}; font-size: 18px; font-weight: 700;">${flaggedCount}</td>
+          </tr>
+        </table>
+        <div style="background: #e0e7ff; border-left: 4px solid #6366f1; padding: 14px 18px; border-radius: 6px; margin-top: 8px;">
+          <p style="margin: 0; color: #3730a3; font-size: 13px;">📎 The detailed student activity log is attached as a CSV file. You can open it directly in Microsoft Excel or Google Sheets.</p>
+        </div>
+      </div>
+      <div style="background: #f1f5f9; padding: 16px 32px; text-align: center; font-size: 12px; color: #94a3b8;">
+        SmartLab Monitor • Automated Report • ${dateStr}
+      </div>
+    </div>
+  `;
+
+  const mailOptions = {
+    from: `"SmartLab Monitor" <${EMAIL_USER}>`,
+    to: recipientEmail,
+    subject: `SmartLab Report — ${subject} | ${dateStr} | ${studentCount} Students`,
+    html: htmlBody,
+    attachments: [
+      {
+        filename: fileName,
+        content: csvContent,
+        contentType: 'text/csv'
+      }
+    ]
+  };
+
+  console.log(`[EMAIL] Sending session report to ${recipientEmail}...`);
+  const info = await emailTransporter.sendMail(mailOptions);
+  console.log(`[EMAIL] Report sent successfully! MessageId: ${info.messageId}`);
+}
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, '0.0.0.0', () => {
